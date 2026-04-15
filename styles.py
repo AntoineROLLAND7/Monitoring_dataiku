@@ -1,0 +1,213 @@
+# styles.py
+# CSS complet du dashboard, retourné comme chaîne à injecter dans le <head>
+
+CSS = """
+<style>
+/* --- VARIABLES & BASE --- */
+:root {
+    --primary: #4f46e5;
+    --primary-light: #818cf8;
+    --success: #10b981;
+    --failed: #f43f5e;
+    --warning: #f59e0b;
+    --bg: #f4f4f5;
+    --card-bg: rgba(255, 255, 255, 0.8);
+    --text: #09090b;
+    --text-dim: #71717a;
+    --border: rgba(228, 228, 231, 0.8);
+    --shadow: 0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04);
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg);
+    background-image:
+        radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.05) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.05) 0px, transparent 50%);
+    color: var(--text);
+    margin: 0;
+    display: flex;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* --- LAYOUT --- */
+main { flex: 1; padding: 10px 40px 40px; margin-left: 0; }
+.container { max-width: 95%; margin: 0 auto; }
+
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+}
+
+/* --- TYPOGRAPHY --- */
+h1 { font-size: 2.2rem; font-weight: 800; margin: 0; letter-spacing: -1.5px; color: var(--text); }
+h1 span { color: var(--primary); font-weight: 300; text-transform: uppercase; font-size: 1.8rem; letter-spacing: 1px; }
+.subtitle { margin: 8px 0 0 0; color: var(--text-dim); font-size: 0.95rem; font-weight: 300; }
+
+/* --- BENTO GRID CARDS --- */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 30px; }
+
+.card {
+    background: var(--card-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.2s ease;
+}
+.card:hover { transform: translateY(-2px); border-color: var(--primary-light); box-shadow: 0 10px 20px rgba(0,0,0,0.03); }
+
+.chart-card, .global-trend-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    position: relative;
+    padding: 20px;
+    box-shadow: var(--shadow);
+}
+
+.icon-box {
+    position: absolute; top: 12px; right: 12px;
+    background: rgba(0, 0, 0, 0.05); border-radius: 8px;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+}
+
+/* --- FILTERS --- */
+.filter-bar { margin-bottom: 10px; display: flex; gap: 15px; align-items: center; }
+
+.row-filter, .search-input, .status-select {
+    background: white !important;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 15px;
+    border-radius: 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.search-input, .status-select {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.row-filter:focus, .search-input:focus, .status-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+}
+
+.status-select {
+    cursor: pointer; min-width: 220px;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2318181b' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5' /%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 14px;
+    padding-right: 40px;
+}
+.status-select:focus { border-color: var(--primary); background-color: #fff !important; }
+
+/* --- TABLE HIERARCHY --- */
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; color: var(--text-dim); font-size: 0.75rem; padding: 12px; border-bottom: 1px solid var(--border); }
+
+tr[class^="row-l"] { transition: background 0.2s; color: var(--text); }
+
+.row-l1 { cursor: pointer; background: white; border-top: 15px solid var(--bg) !important; }
+.row-l1:first-child { border-top: none !important; }
+.row-l1:hover { background: #f1f5f9 !important; }
+.row-l1 td { padding: 15px; font-weight: bold; border-bottom: 1px solid var(--border); }
+
+.row-l2 { border-left: 5px solid var(--secondary); display: none; background: #fafafa; }
+.row-l2 td { padding: 12px 15px 12px 40px; font-size: 0.95rem; }
+
+.row-l2bis { border-left: 5px solid var(--primary); display: none; }
+.row-l2bis td { padding: 10px 15px 10px 80px; font-size: 0.9rem; }
+
+.row-l3, .row-l4 { display: none; border-left: 5px solid #cbd5e1; background: #fcfcfc; }
+.row-l3 td { padding: 8px 15px 8px 120px; font-size: 0.85rem; color: var(--text-dim); }
+.row-l4 td { padding: 8px 15px 8px 160px; font-size: 0.85rem; color: var(--text-dim); }
+
+/* Status & Badges */
+.status { padding: 4px 10px; border-radius: 10px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; }
+.status.success, .SUCCESS { color: var(--success); background: #ecfdf5; border: 1px solid #a7f3d0; }
+.status.failed,  .FAILED  { color: var(--failed);  background: #fef2f2; border: 1px solid #fecaca; }
+.status-critical { color: var(--failed) !important; font-weight: 700; }
+
+/* --- HEATMAPS --- */
+.heatmap-container { display: flex; gap: 4px; align-items: center; }
+.heat-square { width: 80%; height: 12px; border-radius: 2px; cursor: help; transition: transform 0.1s; border: 1px solid rgba(0,0,0,0.05); }
+.heat-square:hover { transform: scale(1.3); }
+.heat-square:last-of-type { outline: 1.5px solid var(--primary); outline-offset: 1px; }
+
+.heat-success, .heat-perfect  { background-color: var(--success); }
+.heat-failed,  .heat-critical { background-color: var(--failed); }
+.heat-warning                 { background-color: var(--warning); }
+.heat-NA, .heat-empty         { background-color: #e2e8f0; }
+
+/* Calendar */
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; width: fit-content; margin: 5px auto; place-items: center; }
+.calendar-label { font-size: 0.65rem; color: var(--text-dim); text-align: center; }
+.calendar-day { width: 18px; height: 18px; border-radius: 3px; transition: transform 0.2s; cursor: pointer; }
+.calendar-day:hover { transform: scale(1.3); z-index: 10; }
+
+/* UI Elements */
+.data-badge {
+    background: white; border: 1px solid var(--border);
+    padding: 8px 16px; border-radius: 50px; font-size: 0.8rem; color: var(--primary);
+    display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow);
+}
+.pulse-dot {
+    width: 8px; height: 8px; background-color: var(--success); border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%   { box-shadow: 0 0 0 0   rgba(5, 150, 105, 0.4); }
+    70%  { box-shadow: 0 0 0 10px rgba(5, 150, 105, 0); }
+    100% { box-shadow: 0 0 0 0   rgba(5, 150, 105, 0); }
+}
+
+.toggle-icon { display: inline-block; width: 12px; transition: transform 0.3s; color: var(--primary); margin-right: 8px; font-size: 0.7rem; }
+.expanded .toggle-icon { transform: rotate(90deg); }
+.hidden { display: none !important; }
+
+#chart-tooltip {
+    position: fixed; background: white; color: var(--text); padding: 8px 12px; border-radius: 8px;
+    font-size: 0.75rem; pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 1000;
+    border: 1px solid var(--border); box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+}
+
+.stat-label  { font-size: 0.8rem;  font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.stat-label2 { font-size: 0.6rem;  font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 28px; }
+</style>
+"""
+
+
+def get_html_head(title: str = "QA Analytics Dashboard") -> str:
+    """Retourne le bloc <head> complet avec les fonts et le CSS."""
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&display=swap" rel="stylesheet">
+    {CSS}
+</head>"""
