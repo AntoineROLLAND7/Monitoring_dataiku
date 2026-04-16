@@ -26,10 +26,10 @@ import dataiku.insights     # API Dataiku pour publier un insight HTML
 from config import INSIGHT_NAME  # Nom de l'insight cible dans Dataiku
 
 # --- Chargement des données ---
-from data_loader import load_raw_data  # Lecture des datasets Dataiku
+from data.loader import load_raw_data  # Lecture des datasets Dataiku
 
 # --- Traitement métier ---
-from data_processor import (
+from data.processor import (
     normalize_statuses,   # Uniformise ABORTED/WARNING en FAILED/SUCCESS
     filter_by_window,     # Restreint aux N derniers jours
     compute_kpis_7d,      # Calcule les indicateurs pour les cartes KPI
@@ -38,7 +38,7 @@ from data_processor import (
 )
 
 # --- Génération HTML ---
-from styles import get_html_head                              # <head> + CSS complet
+from html_builder.styles import get_html_head                 # <head> + CSS complet
 from html_builder.header import build_header_html             # Bandeau titre + badge date
 from html_builder.kpi_cards import build_kpi_cards_html       # 4 cartes KPI du haut
 from html_builder.calendar import build_calendar_html         # Heatmap calendrier 30 jours
