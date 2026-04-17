@@ -242,24 +242,25 @@ def build_drill_down_html(df: pd.DataFrame) -> str:
     return f"""
     <div class="container">
 
-        <!-- Section header -->
-        <div class="section-header">
-            <h2 class="section-title">Project Execution Log</h2>
-        </div>
-
-        <!-- Barre de filtres : recherche par nom + filtre par statut -->
-        <div class="filter-bar">
-            <div class="search-wrapper">
-                <span class="material-symbols-outlined search-icon">search</span>
-                <input type="text" id="projSearch" class="search-input"
-                       placeholder="Search project..." onkeyup="filterData()">
+        <!-- Section header + filtres sur la même ligne -->
+        <div class="section-topbar">
+            <div class="section-header">
+                <h2 class="section-title">Project Execution Log</h2>
+                <span class="section-badge">Live Feed Tracking</span>
             </div>
-            <select id="statusFilter" class="status-select" onchange="filterData()">
-                <option value="all">All Status</option>
-                <option value="success">Success</option>
-                <option value="failed">Failed</option>
-                <option value="critical-trend">⚠️ Today's &amp; yesterday's failures</option>
-            </select>
+            <div class="filter-bar">
+                <div class="search-wrapper">
+                    <span class="material-symbols-outlined search-icon">search</span>
+                    <input type="text" id="projSearch" class="search-input"
+                           placeholder="Search project..." onkeyup="filterData()">
+                </div>
+                <select id="statusFilter" class="status-select" onchange="filterData()">
+                    <option value="all">All Status</option>
+                    <option value="success">Success</option>
+                    <option value="failed">Failed</option>
+                    <option value="critical-trend">⚠️ Today's &amp; yesterday's failures</option>
+                </select>
+            </div>
         </div>
 
         <!-- Tableau principal -->
