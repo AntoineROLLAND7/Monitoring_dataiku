@@ -111,7 +111,6 @@ def build_dashboard() -> str:
         chronic_projects     = kpis["chronic_projects"],
         isolated_failures    = kpis["isolated_failures"],
         avg_success_projects = kpis["avg_success_projects"],
-        avg_success_scenarios= kpis["avg_success_scenarios"],
         calendar_html        = calendar_html,
     )
     html += build_drill_down_html(df_steps_enriched) # Filtres + tableau hiérarchique
