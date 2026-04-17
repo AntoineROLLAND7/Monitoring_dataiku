@@ -16,6 +16,7 @@
 import pandas as pd
 import numpy as np
 from datetime import timedelta
+from typing import Tuple  
 
 # Imports centralisés depuis config.py pour éviter les magic strings/numbers
 from config import (
@@ -36,7 +37,7 @@ from config import (
 # 1. NORMALISATION DES STATUTS
 # =============================================================================
 
-def normalize_statuses(df: pd.DataFrame, df_step: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def normalize_statuses(df: pd.DataFrame, df_step: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Uniformise les statuts bruts Dataiku en deux valeurs métier : SUCCESS et FAILED.
 
