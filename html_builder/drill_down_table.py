@@ -245,7 +245,6 @@ def build_drill_down_html(df: pd.DataFrame) -> str:
         <!-- Section header -->
         <div class="section-header">
             <h2 class="section-title">Project Execution Log</h2>
-            <span class="section-badge">Live Feed Tracking</span>
         </div>
 
         <!-- Barre de filtres : recherche par nom + filtre par statut -->
