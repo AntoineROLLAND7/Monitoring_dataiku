@@ -76,8 +76,11 @@ def build_kpi_cards_html(
 
             <div class="card">
                 <div class="icon-box"><span class="material-symbols-outlined">insights</span></div>
-                <span>Last 30 days trend</span>
-                {calendar_html}
+                <div class="stat-label">30-Day Trend</div>
+                <div class="stat-label2">(health per day)</div>
+                <div class="card-value-wrapper">
+                    {calendar_html}
+                </div>
             </div>
 
         </div>
