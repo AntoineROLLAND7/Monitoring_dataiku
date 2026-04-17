@@ -83,7 +83,9 @@ h1 span { color: var(--primary); font-weight: 300; text-transform: uppercase; fo
 }
 
 /* --- SECTION HEADER --- */
-.section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.section-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.section-topbar .filter-bar { margin-bottom: 0; }
+.section-header { display: flex; align-items: center; gap: 12px; }
 .section-title  { font-size: 1.5rem; font-weight: 900; color: var(--text); letter-spacing: -0.02em; margin: 0; }
 .section-badge  {
     padding: 3px 10px; background: rgba(79,70,229,0.1); color: var(--primary);
