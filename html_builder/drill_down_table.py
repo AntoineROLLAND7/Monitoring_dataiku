@@ -246,6 +246,7 @@ def build_drill_down_html(df: pd.DataFrame) -> str:
         <div class="section-topbar">
             <div class="section-header">
                 <h2 class="section-title">Project Execution Log</h2>
+                <span class="section-badge">Live Feed Tracking</span>
             </div>
             <div class="filter-bar">
                 <div class="search-wrapper">

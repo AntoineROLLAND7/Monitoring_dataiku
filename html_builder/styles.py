@@ -58,7 +58,7 @@ h1 span { color: var(--primary); font-weight: 300; text-transform: uppercase; fo
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 24px;
+    padding: 18px 22px 12px;
     box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
@@ -231,8 +231,8 @@ tr[class^="row-l"] { transition: background 0.2s; color: var(--text); }
     border: 1px solid var(--border); box-shadow: 0 10px 15px rgba(0,0,0,0.1);
 }
 
-.stat-label  { font-size: 0.8rem;  font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
-.stat-label2 { font-size: 0.6rem;  font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 28px; }
+.stat-label  { font-size: 0.8rem;  font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+.stat-label2 { font-size: 0.6rem;  font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
 
 /* --- TABLE FOOTER --- */
 .table-footer { background: #f8fafc; border-top: 1px solid #f1f5f9; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
