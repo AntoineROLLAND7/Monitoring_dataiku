@@ -28,59 +28,61 @@ def _build_heatmap_squares(
     df_subset: pd.DataFrame,
     date_range: pd.DatetimeIndex,
     date_col: str = "date_column"
-) -> str:
+) -> tuple:
     """
-    Génère les 7 carrés HTML de la heatmap pour un projet ou un scénario.
-
-    Logique :
-      - Si au moins un run est FAILED ce jour → carré rouge (heat-failed)
-      - Si tous les runs sont SUCCESS ce jour  → carré vert (heat-success)
-      - Si aucun run ce jour-là               → carré gris (heat-NA)
-
-    Args:
-        df_subset  : Sous-DataFrame filtré sur un projet ou un scénario
-        date_range : Référentiel de 7 dates consécutives (pandas DatetimeIndex)
-        date_col   : Nom de la colonne date dans df_subset
+    Génère les 7 carrés HTML de la heatmap pour un projet ou un scénario,
+    ainsi qu'un label de stabilité basé sur les échecs récents.
 
     Returns:
-        str : Séquence de 7 <div class="heat-square heat-{status}"> concaténés
+        tuple[str, tuple[str, str]] : (squares_html, (label_text, label_css_class))
     """
-    # Agrégation par jour : un seul FAILED suffit à rendre le jour "failed"
     summary_df = df_subset.groupby(date_col)["run_status"].agg(
         lambda x: "failed" if (x == "FAILED").any() else "success"
     ).reset_index()
 
-    # Merge LEFT pour conserver les 7 jours même si certains n'ont pas de run
     template_df = pd.DataFrame({date_col: date_range})
     final_df    = pd.merge(template_df, summary_df, on=date_col, how="left")
-    final_df["run_status"] = final_df["run_status"].fillna("NA")  # Jours sans run → gris
+    final_df["run_status"] = final_df["run_status"].fillna("NA")
+
+    statuses = final_df["run_status"].tolist()
 
     squares = []
     for _, row in final_df.iterrows():
-        # Extraction de la date (gère les types Timestamp et date Python)
         date_str = row[date_col].date() if hasattr(row[date_col], "date") else row[date_col]
         squares.append(
             f'<div class="heat-square heat-{row.run_status}" '
             f'title="{date_str}: {row.run_status}"></div>'
         )
-    return "\n".join(squares)
+    squares_html = "\n".join(squares)
+
+    # Label de stabilité basé sur les 2 derniers jours actifs
+    recent = [s for s in statuses[-2:] if s != "NA"]
+    if recent and any(s == "failed" for s in recent):
+        stability = ("Critical", "critical")
+    elif any(s == "failed" for s in statuses):
+        stability = ("Unstable", "unstable")
+    else:
+        stability = ("Steady", "steady")
+
+    return squares_html, stability
 
 
-def _heatmap_wrapper(squares_html: str) -> str:
+def _heatmap_wrapper(squares_html: str, stability: tuple) -> str:
     """
-    Encapsule les carrés de heatmap dans le conteneur HTML avec labels "7d trend" et "Today".
+    Encapsule les carrés de heatmap dans le conteneur HTML avec un label de stabilité.
 
     Args:
         squares_html : Chaîne HTML des 7 carrés (retournée par _build_heatmap_squares)
+        stability    : Tuple (label_text, css_class) ex: ("Steady", "steady")
 
     Returns:
         str : Bloc HTML complet de la heatmap pour insertion dans la cellule du tableau
     """
+    label_text, label_cls = stability
     return f"""
         <div class="heatmap-container">
-            <span style="font-size: 0.7rem; margin-right: 5px; color: #94a3b8;">7d trend:</span>
             {squares_html}
-            <span style="font-size: 0.6rem; color: var(--primary); margin-left: 2px;">Today</span>
+            <span class="heat-label {label_cls}">{label_text}</span>
         </div>"""
 
 
@@ -126,16 +128,14 @@ def build_table_rows_html(df: pd.DataFrame) -> str:
         proj_status = "failed" if failed_runs > 0 else "success"
 
         # Heatmap 7 jours du projet
-        squares = _build_heatmap_squares(project_df, date_range)
-        heatmap = _heatmap_wrapper(squares)
+        squares, stability = _build_heatmap_squares(project_df, date_range)
+        heatmap = _heatmap_wrapper(squares, stability)
 
-        # data-status est lu par le JS pour le filtre "All/Success/Failed"
-        # onclick appelle toggleRow() qui affiche/masque les lignes L2 enfants
         html_rows.append(f"""
     <tr class="row-l1" data-status="{proj_status}" onclick="toggleRow(this, 'row-l2')">
-        <td><span class="toggle-icon">▶</span> <strong>{project_id}</strong></td>
+        <td><span class="material-symbols-outlined toggle-icon">chevron_right</span> <strong>{project_id}</strong></td>
         <td>---</td>
-        <td><span class="status {proj_status}">{proj_status.capitalize()}</span></td>
+        <td><span class="status {proj_status}"><span class="status-dot"></span>{proj_status.capitalize()}</span></td>
         <td>{heatmap}</td>
     </tr>""")
 
@@ -143,16 +143,15 @@ def build_table_rows_html(df: pd.DataFrame) -> str:
         # NIVEAU 2 : SCÉNARIO
         # =====================================================================
         for scenario_id, scenario_df in project_df.groupby("scenario_id", sort=False):
-            # Un scénario est "failed" si au moins un de ses runs est FAILED
             scen_status = "failed" if (scenario_df["run_status"] == "FAILED").any() else "success"
-            squares_s   = _build_heatmap_squares(scenario_df, date_range)
-            heatmap_s   = _heatmap_wrapper(squares_s)
+            squares_s, stability_s = _build_heatmap_squares(scenario_df, date_range)
+            heatmap_s = _heatmap_wrapper(squares_s, stability_s)
 
             html_rows.append(f"""
         <tr class="row-l2" data-status="{scen_status}" onclick="toggleRow(this, 'row-l2bis')">
-            <td style="padding-left: 40px;"><span class="toggle-icon">▶</span> {scenario_id}</td>
+            <td style="padding-left: 40px;"><span class="material-symbols-outlined toggle-icon">chevron_right</span> {scenario_id}</td>
             <td>---</td>
-            <td><span class="status {scen_status}">{scen_status.capitalize()}</span></td>
+            <td><span class="status {scen_status}"><span class="status-dot"></span>{scen_status.capitalize()}</span></td>
             <td>{heatmap_s}</td>
         </tr>""")
 
@@ -170,9 +169,9 @@ def build_table_rows_html(df: pd.DataFrame) -> str:
 
                 html_rows.append(f"""
             <tr class="row-l2bis" data-status="{run_status}" onclick="toggleRow(this, 'row-l3')">
-                <td style="padding-left: 80px;"><span class="toggle-icon">▶</span> {run_exec}</td>
+                <td style="padding-left: 80px;"><span class="material-symbols-outlined toggle-icon">chevron_right</span> {run_exec}</td>
                 <td>-</td>
-                <td><span class="status {run_status}">{run_status.capitalize()}</span></td>
+                <td><span class="status {run_status}"><span class="status-dot"></span>{run_status.capitalize()}</span></td>
                 <td><a href="{log_link}" target="_blank" style="color:var(--primary)">🔗 Logs (right click + Open)</a></td>
             </tr>""")
 
@@ -188,9 +187,9 @@ def build_table_rows_html(df: pd.DataFrame) -> str:
 
                     html_rows.append(f"""
                 <tr class="row-l3" data-status="{exec_status}" onclick="toggleRow(this, 'row-l4')">
-                    <td style="padding-left: 120px;"><span class="toggle-icon">▶</span> Execution of {heure_exec}</td>
+                    <td style="padding-left: 120px;"><span class="material-symbols-outlined toggle-icon">chevron_right</span> Execution of {heure_exec}</td>
                     <td>{heure_exec}</td>
-                    <td><span class="status {exec_status}">{exec_status.capitalize()}</span></td>
+                    <td><span class="status {exec_status}"><span class="status-dot"></span>{exec_status.capitalize()}</span></td>
                     <td><a href="{log_link_exec}" target="_blank" style="color:var(--primary)">Logs (right click + Open)</a></td>
                 </tr>""")
 
@@ -236,39 +235,52 @@ def build_drill_down_html(df: pd.DataFrame) -> str:
     Returns:
         str : HTML complet du bloc filtres + tableau, à insérer dans le body
     """
-    rows_html = build_table_rows_html(df)
+    from config import COL_PROJECT_ID
+    n_projects = df[COL_PROJECT_ID].nunique()
+    rows_html  = build_table_rows_html(df)
 
     return f"""
     <div class="container">
 
+        <!-- Section header -->
+        <div class="section-header">
+            <h2 class="section-title">Project Execution Log</h2>
+            <span class="section-badge">Live Feed Tracking</span>
+        </div>
+
         <!-- Barre de filtres : recherche par nom + filtre par statut -->
         <div class="filter-bar">
-            <input type="text" id="projSearch" class="search-input"
-                   placeholder="Search project..." onkeyup="filterData()">
+            <div class="search-wrapper">
+                <span class="material-symbols-outlined search-icon">search</span>
+                <input type="text" id="projSearch" class="search-input"
+                       placeholder="Search project..." onkeyup="filterData()">
+            </div>
             <select id="statusFilter" class="status-select" onchange="filterData()">
-                <option value="all">All status</option>
+                <option value="all">All Status</option>
                 <option value="success">Success</option>
                 <option value="failed">Failed</option>
-                <!-- critical-trend : projets ayant échoué aujourd'hui OU hier (heatmap) -->
-                <option value="critical-trend">⚠️ Today's & yesterday's failures</option>
+                <option value="critical-trend">⚠️ Today's &amp; yesterday's failures</option>
             </select>
         </div>
 
         <!-- Tableau principal -->
-        <div class="card" style="padding:0">
+        <div class="drill-table-card">
             <table id="masterTable">
                 <thead>
                     <tr>
-                        <th>Projet / Scénario / Step</th>
-                        <th>Date</th>
-                        <th>Status</th>
-                        <th>Info / Error</th>
+                        <th>Identify / Scope</th>
+                        <th>Reference Date</th>
+                        <th>Health State</th>
+                        <th>7D Performance Matrix</th>
                     </tr>
                 </thead>
                 <tbody>
                     {rows_html}
                 </tbody>
             </table>
+            <div class="table-footer">
+                <span class="table-footer-text">Showing {n_projects} active projects</span>
+            </div>
         </div>
     </div>
 """
