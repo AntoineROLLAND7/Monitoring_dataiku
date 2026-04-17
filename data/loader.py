@@ -12,9 +12,9 @@
 import dataiku          # SDK Dataiku pour accéder aux datasets du projet
 import pandas as pd     # Manipulation des données tabulaires
 from config import DATASET_SCENARIO, DATASET_STEP_SCENARIO  # Noms des datasets (centralisés)
+from typing import Tuple  
 
-
-def load_raw_data() -> tuple[pd.DataFrame, pd.DataFrame]:
+def load_raw_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Charge les deux datasets Dataiku bruts sans aucune transformation.
 
