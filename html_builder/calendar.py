@@ -67,20 +67,69 @@ def build_calendar_html(final_df: pd.DataFrame, date_col: str = "date_column") -
         if current_date == derniere_date:
             style = ' style="outline: 2px solid var(--primary); outline-offset: 2px;"'
 
-        # Récupération des données de la ligne (avec valeurs par défaut si colonne absente)
-        health_status = row.get("health_status", "empty")         # Classe CSS de couleur
-        pct           = row.get("pct_success_projects", 0)         # Taux affiché dans le tooltip
-        failed_list   = row.get("list_failed_projects", "")        # Liste projets KO (tooltip)
+        health_status = row.get("health_status", "empty")
+        pct           = round(float(row.get("pct_success_projects", 0)), 1)
+        failed_list   = str(row.get("list_failed_projects", "") or "")
+        date_label    = current_date.strftime("%A %d %B %Y")
 
-        # Chaque case est un <div> avec :
-        #   - class "heat-{status}" → colorisation CSS (voir styles.py)
-        #   - title → tooltip natif HTML au survol (&#10; = saut de ligne dans un attribut)
-        #   - style → outline pour "aujourd'hui" uniquement
         html += (
             f'    <div class="calendar-day heat-{health_status}" '
-            f'title="{current_date} : {pct} % &#10;Projets en échec: {failed_list}"'
+            f'data-date="{date_label}" data-pct="{pct}" '
+            f'data-status="{health_status}" data-failed="{failed_list}" '
+            f'onmouseenter="showCalTT(this,event)" onmouseleave="hideCalTT()"'
             f'{style}></div>\n'
         )
 
-    html += "</div>"
+    html += "</div>\n"
+
+    # Tooltip custom + JS (position: fixed → non clippé par le parent)
+    html += """
+<div id="cal-tt">
+    <div class="cal-tt-header">
+        <span class="cal-tt-dot" id="cal-tt-dot"></span>
+        <span class="cal-tt-date" id="cal-tt-date"></span>
+    </div>
+    <div class="cal-tt-rate">
+        <span class="cal-tt-rate-val" id="cal-tt-rate"></span>
+        <span class="cal-tt-rate-lbl">projects OK</span>
+    </div>
+    <div id="cal-tt-fails" style="display:none">
+        <div class="cal-tt-fails-title">Failed projects</div>
+        <div id="cal-tt-fails-list"></div>
+    </div>
+</div>
+<script>
+    const _calTT = document.getElementById('cal-tt');
+    function showCalTT(el, e) {
+        document.getElementById('cal-tt-date').textContent = el.dataset.date;
+        document.getElementById('cal-tt-rate').textContent = el.dataset.pct + '%';
+        const dot = document.getElementById('cal-tt-dot');
+        dot.className = 'cal-tt-dot heat-' + el.dataset.status;
+        const projects = el.dataset.failed
+            ? el.dataset.failed.split('\\n\u2022').filter(s => s.trim())
+            : [];
+        const failsSection = document.getElementById('cal-tt-fails');
+        if (projects.length) {
+            document.getElementById('cal-tt-fails-list').innerHTML =
+                projects.map(p => `<span class="cal-tt-proj">${p}</span>`).join('');
+            failsSection.style.display = 'block';
+        } else {
+            failsSection.style.display = 'none';
+        }
+        _posCalTT(e);
+        _calTT.style.opacity = '1';
+    }
+    function hideCalTT() { _calTT.style.opacity = '0'; }
+    function _posCalTT(e) {
+        _calTT.style.left = '-9999px';
+        _calTT.style.top  = '-9999px';
+        const tw = _calTT.offsetWidth  || 190;
+        const th = _calTT.offsetHeight || 130;
+        const x  = e.clientX + 16;
+        const y  = e.clientY - 10;
+        _calTT.style.left = (x + tw > window.innerWidth  ? x - tw - 32 : x) + 'px';
+        _calTT.style.top  = (y + th > window.innerHeight ? y - th      : y) + 'px';
+    }
+</script>"""
+
     return html

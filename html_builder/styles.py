@@ -235,6 +235,32 @@ tr[class^="row-l"] { transition: background 0.2s; color: var(--text); }
 /* --- TABLE FOOTER --- */
 .table-footer { background: #f8fafc; border-top: 1px solid #f1f5f9; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
 .table-footer-text { font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* --- CALENDAR CUSTOM TOOLTIP --- */
+#cal-tt {
+    position: fixed; z-index: 9999; pointer-events: none;
+    background: white; border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px 16px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
+    min-width: 175px; max-width: 250px;
+    opacity: 0; transition: opacity 0.15s ease;
+    font-family: 'Inter', sans-serif;
+}
+.cal-tt-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cal-tt-dot    { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.cal-tt-date   { font-size: 0.78rem; font-weight: 700; color: var(--text); }
+.cal-tt-rate   { display: flex; align-items: baseline; gap: 5px; margin-bottom: 10px; }
+.cal-tt-rate-val { font-size: 1.5rem; font-weight: 900; color: var(--text); letter-spacing: -0.03em; line-height: 1; }
+.cal-tt-rate-lbl { font-size: 0.62rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.cal-tt-fails-title {
+    font-size: 0.58rem; font-weight: 800; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    border-top: 1px solid var(--border); padding-top: 8px; margin-bottom: 5px;
+}
+.cal-tt-proj {
+    display: block; font-size: 0.7rem; font-weight: 600;
+    color: var(--failed); padding: 1px 0;
+}
 </style>
 """
 
