@@ -51,7 +51,6 @@ h1 span { color: var(--primary); font-weight: 300; text-transform: uppercase; fo
 
 /* --- BENTO GRID CARDS --- */
 .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 30px; }
-.kpi-trend-wide { grid-column: 1 / -1; }
 
 .card {
     background: var(--card-bg);

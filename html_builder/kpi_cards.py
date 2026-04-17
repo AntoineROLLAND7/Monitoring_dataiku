@@ -8,23 +8,12 @@ def build_kpi_cards_html(
     chronic_projects: int,
     isolated_failures: int,
     avg_success_projects: float,
-    avg_success_scenarios: float,
     calendar_html: str,
 ) -> str:
     """
-    Retourne le HTML de la grille de KPIs.
+    Retourne le HTML de la grille de 6 cartes KPI sur une seule ligne.
 
-    Ligne 1 (6 colonnes) : # Projects | Failed 24h | Chronic | Isolated | Proj. Success | Scen. Success
-    Ligne 2 (pleine largeur) : heatmap 30 jours
-
-    Args:
-        distinct_projects    : Nombre de projets actifs sur 7 jours
-        failed_projects_24h  : Nombre de projets en échec sur les dernières 24h
-        chronic_projects     : Projets avec taux d'échec ≥ 80 % sur 7 jours
-        isolated_failures    : Projets avec exactement 1 run FAILED sur 7 jours (taux < 80 %)
-        avg_success_projects : Taux moyen de succès projets sur 7 jours (%)
-        avg_success_scenarios: Taux moyen de succès scénarios sur 7 jours (%)
-        calendar_html        : HTML de la heatmap calendrier 30 jours
+    # Projects | Failed 24h | Chronic | Isolated | Project Success Rate | 30d Trend
     """
     return f"""
     <div class="container">
@@ -76,15 +65,6 @@ def build_kpi_cards_html(
             </div>
 
             <div class="card">
-                <div class="icon-box"><span class="material-symbols-outlined">query_stats</span></div>
-                <div class="stat-label" style="margin-right: 10px;">Scenario Success Rate</div>
-                <div class="stat-label2" style="margin-right: 10px;">(last 7 days)</div>
-                <div class="stat-value" style="font-size: 2.2rem; font-weight: bold;">
-                    <span id="scenario-rate">{round(avg_success_scenarios, 1)}%</span>
-                </div>
-            </div>
-
-            <div class="card kpi-trend-wide">
                 <div class="icon-box"><span class="material-symbols-outlined">insights</span></div>
                 <span><i class="stats-icon" style="margin-right: 10px;"></i>Last 30 days trend</span>
                 {calendar_html}
