@@ -105,11 +105,12 @@ def build_dashboard() -> str:
     html  = get_html_head()                          # <!DOCTYPE html> ... <head> ... </head>
     html += "<body>\n"
     html += build_header_html(date_str)              # Bandeau titre + badge date
-    html += build_kpi_cards_html(                    # Grille des 4 cartes KPI
+    html += build_kpi_cards_html(                    # Grille des 5 cartes KPI
         distinct_projects    = kpis["distinct_projects"],
+        failed_projects_24h  = kpis["failed_projects_24h"],
         avg_success_projects = kpis["avg_success_projects"],
         avg_success_scenarios= kpis["avg_success_scenarios"],
-        calendar_html        = calendar_html,        # Heatmap injectée dans la 4e carte
+        calendar_html        = calendar_html,        # Heatmap injectée dans la 5e carte
     )
     html += build_drill_down_html(df_steps_enriched) # Filtres + tableau hiérarchique
     html += "\n    </main>\n"
