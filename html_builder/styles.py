@@ -107,7 +107,7 @@ h1 span { color: var(--primary); font-weight: 300; text-transform: uppercase; fo
     border: 1px solid var(--border);
     color: var(--text);
     padding: 10px 16px;
-    border-radius: 20px;
+    border-radius: 10px;
     font-family: 'Inter', sans-serif;
     font-size: 0.9rem;
     outline: none;
