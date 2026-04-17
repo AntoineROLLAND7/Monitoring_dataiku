@@ -146,6 +146,19 @@ def compute_kpis_7d(df_7d: pd.DataFrame) -> dict:
         df_last_24h.groupby(COL_PROJECT_ID)["not_is_success"].max().sum()
     )
 
+    # Chronic vs isolated : comparaison du taux d'échec par projet sur 7 jours
+    # - Chronic  : ≥ 80 % des runs sont en échec → projet structurellement cassé
+    # - Isolated : exactement 1 run FAILED et taux < 80 % → incident ponctuel
+    failed_per_proj = (
+        df_7d[df_7d[COL_RUN_STATUS] == "FAILED"]
+        .groupby(COL_PROJECT_ID)[COL_RUN_ID].nunique()
+    )
+    total_per_proj = df_7d.groupby(COL_PROJECT_ID)[COL_RUN_ID].nunique()
+    failure_rate   = (failed_per_proj / total_per_proj).fillna(0)
+
+    chronic_projects  = int((failure_rate >= 0.8).sum())
+    isolated_failures = int(((failed_per_proj == 1) & (failure_rate < 0.8)).sum())
+
     daily_stats = df_7d.groupby(df_7d[COL_RUN_DATE].dt.date).agg(
         # Taux de succès des scénarios : moyenne simple (nb succès / nb total runs)
         pct_success_scenarios=("is_success", "mean"),
@@ -173,9 +186,11 @@ def compute_kpis_7d(df_7d: pd.DataFrame) -> dict:
     return {
         "distinct_projects":     df_7d[COL_PROJECT_ID].nunique(),
         "failed_projects_24h":   failed_projects_24h,
+        "chronic_projects":      chronic_projects,
+        "isolated_failures":     isolated_failures,
         "avg_success_scenarios": daily_stats["pct_success_scenarios"].mean(),
         "avg_success_projects":  daily_stats["pct_success_projects"].mean(),
-        "daily_stats":           daily_stats,  # Conservé pour usage futur (graphiques, etc.)
+        "daily_stats":           daily_stats,
     }
 
 
