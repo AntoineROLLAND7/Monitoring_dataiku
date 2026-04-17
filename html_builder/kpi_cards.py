@@ -13,7 +13,7 @@ def build_kpi_cards_html(
     """
     Retourne le HTML de la grille de 6 cartes KPI sur une seule ligne.
 
-    # Projects | Failed 24h | Chronic | Isolated | Project Success Rate | 30d Trend
+    Active Projects | Failing Today | Always Failing | One-off Failures | Project Success Rate | 30d Trend
     """
     return f"""
     <div class="container">
@@ -21,52 +21,62 @@ def build_kpi_cards_html(
 
             <div class="card">
                 <div class="icon-box"><span class="material-symbols-outlined">folder_open</span></div>
-                <div class="stat-label" style="margin-right: 10px;"># Projects</div>
-                <div class="stat-label2" style="margin-right: 10px;">(last 7 days)</div>
-                <div class="stat-value" style="font-size: 2.2rem; font-weight: bold;">
-                    <span id="nb-projects">{distinct_projects}</span>
+                <div class="stat-label">Active Projects</div>
+                <div class="stat-label2">(last 7 days)</div>
+                <div class="card-value-wrapper">
+                    <div class="stat-value" style="font-size: 2.2rem; font-weight: bold;">
+                        <span id="nb-projects">{distinct_projects}</span>
+                    </div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="icon-box" style="color: var(--failed);"><span class="material-symbols-outlined">release_alert</span></div>
-                <div class="stat-label" style="margin-right: 10px;">Failed Projects</div>
-                <div class="stat-label2" style="margin-right: 10px;">(last 24h)</div>
-                <div class="stat-value" style="font-size: 2.2rem; font-weight: bold; color: var(--failed);">
-                    <span id="nb-failed-projects">{failed_projects_24h}</span>
+                <div class="stat-label">Failing Today</div>
+                <div class="stat-label2">(last 24h)</div>
+                <div class="card-value-wrapper">
+                    <div class="stat-value" style="font-size: 2.2rem; font-weight: bold; color: var(--failed);">
+                        <span id="nb-failed-projects">{failed_projects_24h}</span>
+                    </div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="icon-box" style="color: var(--failed);"><span class="material-symbols-outlined">sync_problem</span></div>
-                <div class="stat-label" style="margin-right: 10px;">Chronic Failures</div>
-                <div class="stat-label2" style="margin-right: 10px;">(≥ 80 % fail rate, 7d)</div>
-                <div class="stat-value" style="font-size: 2.2rem; font-weight: bold; color: var(--failed);">
-                    <span id="nb-chronic">{chronic_projects}</span>
+                <div class="stat-label">Always Failing</div>
+                <div class="stat-label2">(≥ 80 % fail rate, 7d)</div>
+                <div class="card-value-wrapper">
+                    <div class="stat-value" style="font-size: 2.2rem; font-weight: bold; color: var(--failed);">
+                        <span id="nb-chronic">{chronic_projects}</span>
+                    </div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="icon-box" style="color: var(--warning);"><span class="material-symbols-outlined">bolt</span></div>
-                <div class="stat-label" style="margin-right: 10px;">Isolated Failures</div>
-                <div class="stat-label2" style="margin-right: 10px;">(single fail, 7d)</div>
-                <div class="stat-value" style="font-size: 2.2rem; font-weight: bold; color: var(--warning);">
-                    <span id="nb-isolated">{isolated_failures}</span>
+                <div class="stat-label">One-off Failures</div>
+                <div class="stat-label2">(single fail, 7d)</div>
+                <div class="card-value-wrapper">
+                    <div class="stat-value" style="font-size: 2.2rem; font-weight: bold; color: var(--warning);">
+                        <span id="nb-isolated">{isolated_failures}</span>
+                    </div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="icon-box"><span class="material-symbols-outlined">verified</span></div>
-                <div class="stat-label" style="margin-right: 10px;">Project Success Rate</div>
-                <div class="stat-label2" style="margin-right: 10px;">(last 7 days)</div>
-                <div class="stat-value" style="font-size: 2.2rem; font-weight: bold;">
-                    <span id="project-rate">{round(avg_success_projects, 1)}%</span>
+                <div class="stat-label">Project Success Rate</div>
+                <div class="stat-label2">(last 7 days)</div>
+                <div class="card-value-wrapper">
+                    <div class="stat-value" style="font-size: 2.2rem; font-weight: bold;">
+                        <span id="project-rate">{round(avg_success_projects, 1)}%</span>
+                    </div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="icon-box"><span class="material-symbols-outlined">insights</span></div>
-                <span><i class="stats-icon" style="margin-right: 10px;"></i>Last 30 days trend</span>
+                <span>Last 30 days trend</span>
                 {calendar_html}
             </div>
 

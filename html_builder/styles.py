@@ -63,10 +63,10 @@ h1 span { color: var(--primary); font-weight: 300; text-transform: uppercase; fo
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     text-align: center;
     transition: all 0.2s ease;
 }
+.card-value-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; }
 .card:hover { transform: translateY(-2px); border-color: var(--primary-light); box-shadow: 0 10px 20px rgba(0,0,0,0.03); }
 
 .chart-card, .global-trend-card {
