@@ -4,15 +4,17 @@
 
 def build_kpi_cards_html(
     distinct_projects: int,
+    failed_projects_24h: int,
     avg_success_projects: float,
     avg_success_scenarios: float,
     calendar_html: str,
 ) -> str:
     """
-    Retourne le HTML de la grille de 4 cartes KPI.
+    Retourne le HTML de la grille de 5 cartes KPI.
 
     Args:
         distinct_projects      : Nombre de projets actifs sur 7 jours
+        failed_projects_24h    : Nombre de projets en échec sur les dernières 24h
         avg_success_projects   : Taux moyen de succès projets sur 7 jours (%)
         avg_success_scenarios  : Taux moyen de succès scénarios sur 7 jours (%)
         calendar_html          : HTML de la heatmap calendrier 30 jours
@@ -27,6 +29,15 @@ def build_kpi_cards_html(
                 <div class="stat-label2" style="margin-right: 10px;">(last 7 days)</div>
                 <div class="stat-value" style="font-size: 2.2rem; font-weight: bold;">
                     <span id="nb-projects">{distinct_projects}</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="icon-box" style="color: var(--failed);"><span class="material-symbols-outlined">release_alert</span></div>
+                <div class="stat-label" style="margin-right: 10px;">Failed Projects</div>
+                <div class="stat-label2" style="margin-right: 10px;">(last 24h)</div>
+                <div class="stat-value" style="font-size: 2.2rem; font-weight: bold; color: var(--failed);">
+                    <span id="nb-failed-projects">{failed_projects_24h}</span>
                 </div>
             </div>
 

@@ -138,6 +138,13 @@ def compute_kpis_7d(df_7d: pd.DataFrame) -> dict:
     # Colonne booléenne inverse : True si le run est un échec (utile pour compter les projets en échec)
     df_7d["not_is_success"] = ~df_7d["is_success"]
 
+    # Projets en échec sur les dernières 24h (jour le plus récent dans les données)
+    last_day = df_7d[COL_RUN_DATE].dt.date.max()
+    df_last_24h = df_7d[df_7d[COL_RUN_DATE].dt.date == last_day]
+    failed_projects_24h = int(
+        df_last_24h.groupby(COL_PROJECT_ID)["not_is_success"].max().sum()
+    )
+
     daily_stats = df_7d.groupby(df_7d[COL_RUN_DATE].dt.date).agg(
         # Taux de succès des scénarios : moyenne simple (nb succès / nb total runs)
         pct_success_scenarios=("is_success", "mean"),
@@ -164,6 +171,7 @@ def compute_kpis_7d(df_7d: pd.DataFrame) -> dict:
 
     return {
         "distinct_projects":     df_7d[COL_PROJECT_ID].nunique(),
+        "failed_projects_24h":   failed_projects_24h,
         "avg_success_scenarios": daily_stats["pct_success_scenarios"].mean(),
         "avg_success_projects":  daily_stats["pct_success_projects"].mean(),
         "daily_stats":           daily_stats,  # Conservé pour usage futur (graphiques, etc.)
