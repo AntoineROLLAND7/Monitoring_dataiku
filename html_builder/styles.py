@@ -50,7 +50,8 @@ h1 span { color: var(--primary); font-weight: 300; text-transform: uppercase; fo
 .subtitle { margin: 8px 0 0 0; color: var(--text-dim); font-size: 0.95rem; font-weight: 300; }
 
 /* --- BENTO GRID CARDS --- */
-.kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 30px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 30px; }
+.kpi-trend-wide { grid-column: 1 / -1; }
 
 .card {
     background: var(--card-bg);
