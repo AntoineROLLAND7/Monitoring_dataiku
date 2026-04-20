@@ -242,6 +242,16 @@ tr[class^="row-l"] { transition: background 0.2s; color: var(--text); }
     padding: 2px 8px; white-space: nowrap;
 }
 
+/* --- TIMELINE DAY BUTTONS --- */
+.tl-day-btn {
+    padding: 8px 14px; border: 1px solid var(--border); background: white;
+    border-radius: 8px; font-size: 0.82rem; font-weight: 700;
+    font-family: 'Inter', sans-serif; color: var(--text-dim);
+    cursor: pointer; transition: all 0.15s;
+}
+.tl-day-btn:hover  { border-color: var(--primary); color: var(--primary); }
+.tl-day-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
 /* --- TABLE FOOTER --- */
 .table-footer { background: #f8fafc; border-top: 1px solid #f1f5f9; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
 .table-footer-text { font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; }

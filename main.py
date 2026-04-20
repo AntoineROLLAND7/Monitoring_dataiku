@@ -30,11 +30,12 @@ from data.loader import load_raw_data  # Lecture des datasets Dataiku
 
 # --- Traitement métier ---
 from data.processor import (
-    normalize_statuses,   # Uniformise ABORTED/WARNING en FAILED/SUCCESS
-    filter_by_window,     # Restreint aux N derniers jours
-    compute_kpis_7d,      # Calcule les indicateurs pour les cartes KPI
-    compute_trend_30d,    # Prépare la série journalière pour la heatmap
-    enrich_steps,         # Enrichit les steps pour le tableau drill-down
+    normalize_statuses,      # Uniformise ABORTED/WARNING en FAILED/SUCCESS
+    filter_by_window,        # Restreint aux N derniers jours
+    compute_kpis_7d,         # Calcule les indicateurs pour les cartes KPI
+    compute_trend_30d,       # Prépare la série journalière pour la heatmap
+    enrich_steps,            # Enrichit les steps pour le tableau drill-down
+    prepare_timeline_data,   # Prépare les données pour le graphique timeline
 )
 
 # --- Génération HTML ---
@@ -46,6 +47,7 @@ from html_builder.drill_down_table import (
     build_drill_down_html,  # Tableau hiérarchique 5 niveaux + filtres
     JAVASCRIPT,             # Code JS (accordéon + filtres) à injecter en fin de body
 )
+from html_builder.timeline import build_timeline_html  # Graphique Gantt concurrence
 
 
 # =============================================================================
@@ -90,9 +92,9 @@ def build_dashboard() -> str:
     # DataFrame de 30 lignes avec health_status et pct_success_projects par jour
     trend_30d = compute_trend_30d(df_30d)
 
-    # --- Étape 6 : Enrichissement des steps ---
-    # Ajout des colonnes heure_exec, run_exec, step_id_short, error_category, etc.
+    # --- Étape 6 : Enrichissement des steps + données timeline ---
     df_steps_enriched = enrich_steps(df_step, df)
+    df_timeline = prepare_timeline_data(df)
 
     # --- Étape 7 : Assemblage HTML ---
     # Date du jour formatée pour le badge dans le header (ex: "April 14, 2025")
@@ -113,7 +115,8 @@ def build_dashboard() -> str:
         avg_success_projects = kpis["avg_success_projects"],
         calendar_html        = calendar_html,
     )
-    html += build_drill_down_html(df_steps_enriched) # Filtres + tableau hiérarchique
+    html += build_timeline_html(df_timeline)          # Gantt : concurrence des exécutions
+    html += build_drill_down_html(df_steps_enriched)  # Filtres + tableau hiérarchique
     html += "\n    </main>\n"
     html += JAVASCRIPT                               # JS accordéon + filtrage (fin de body)
     html += "\n</body>\n</html>"

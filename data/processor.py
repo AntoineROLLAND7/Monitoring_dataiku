@@ -391,3 +391,50 @@ def enrich_steps(df_step: pd.DataFrame, df_run: pd.DataFrame) -> pd.DataFrame:
         df_step["avg_duration_s"] = np.nan
 
     return df_step
+
+
+# =============================================================================
+# 6. DONNÉES POUR LE GRAPHIQUE TIMELINE (Gantt concurrence)
+# =============================================================================
+
+def prepare_timeline_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Prépare le DataFrame scénario pour le graphique timeline (Gantt).
+
+    Pour chaque run, calcule start_s et end_s (secondes écoulées depuis minuit)
+    afin de positionner des barres horizontales sur un axe 0h–24h.
+
+    Args:
+        df : DataFrame scénario normalisé (issu de normalize_statuses).
+             Doit contenir : project_id, scenario_id, run_id, run_date,
+             run_status et run_time.
+
+    Returns:
+        DataFrame avec colonnes :
+          project_id, scenario_id, run_id, run_status,
+          run_day (YYYY-MM-DD), start_s, end_s, run_duration_s
+    """
+    df = df.copy()
+    df = df[~df[COL_PROJECT_ID].isin(EXCLUDED_PROJECTS)].copy()
+    df[COL_RUN_DATE] = pd.to_datetime(df[COL_RUN_DATE])
+
+    # Durée depuis le champ run_time ("0 days 00:00:55.573000000")
+    if "run_time" in df.columns:
+        df["run_duration_s"] = (
+            pd.to_timedelta(df["run_time"]).dt.total_seconds().fillna(0)
+        )
+    else:
+        df["run_duration_s"] = 0.0
+
+    # Fenêtre 7 jours (même logique que filter_by_window)
+    max_date = df[COL_RUN_DATE].max()
+    df = df[df[COL_RUN_DATE] >= (max_date - timedelta(days=WINDOW_7_DAYS - 1)).normalize()].copy()
+
+    # Jour calendaire et secondes depuis minuit
+    df["run_day"] = df[COL_RUN_DATE].dt.strftime("%Y-%m-%d")
+    df["start_s"] = (df[COL_RUN_DATE] - df[COL_RUN_DATE].dt.normalize()).dt.total_seconds()
+    df["end_s"]   = (df["start_s"] + df["run_duration_s"]).clip(upper=86400.0)
+
+    keep = [COL_PROJECT_ID, "scenario_id", COL_RUN_ID, COL_RUN_STATUS,
+            "run_day", "start_s", "end_s", "run_duration_s"]
+    return df[[c for c in keep if c in df.columns]].copy()
