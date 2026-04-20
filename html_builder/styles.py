@@ -139,7 +139,7 @@ h1 span { color: var(--primary); font-weight: 300; text-transform: uppercase; fo
 
 /* --- DRILL TABLE CARD --- */
 .drill-table-card {
-    border-radius: 28px; border: 1px solid var(--border); overflow: hidden;
+    border-radius: 10px; border: 1px solid var(--border); overflow: hidden;
     box-shadow: var(--shadow); background: white;
 }
 
