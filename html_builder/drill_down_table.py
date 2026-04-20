@@ -24,6 +24,52 @@ from datetime import timedelta
 # FONCTIONS HELPERS (privées, usage interne uniquement)
 # =============================================================================
 
+def _build_duration_badge(exec_df: pd.DataFrame) -> str:
+    """
+    Génère un badge HTML affichant la durée d'exécution et un indicateur visuel
+    si la durée est significativement différente de la moyenne du scénario.
+
+    Seuils :
+      - > 1.3× la moyenne → ⬆ rouge  (plus lent que d'habitude)
+      - < 0.7× la moyenne → ⬇ vert   (plus rapide que d'habitude)
+      - sinon             → pas d'indicateur (durée affichée en gris)
+    """
+    duration_s = exec_df["run_duration_s"].iloc[0] if "run_duration_s" in exec_df.columns else None
+    avg_s      = exec_df["avg_duration_s"].iloc[0]  if "avg_duration_s"  in exec_df.columns else None
+
+    if duration_s is None or pd.isna(duration_s):
+        return ""
+
+    mins = int(duration_s // 60)
+    secs = int(duration_s % 60)
+    label = f"{mins}m {secs}s" if mins > 0 else f"{secs}s"
+
+    if avg_s and not pd.isna(avg_s) and avg_s > 0:
+        ratio = duration_s / avg_s
+        if ratio > 1.3:
+            color   = "var(--failed)"
+            arrow   = "⬆"
+            tooltip = f"title=\"+{int((ratio - 1) * 100)}% vs avg ({int(avg_s)}s)\""
+        elif ratio < 0.7:
+            color   = "var(--success)"
+            arrow   = "⬇"
+            tooltip = f"title=\"{int((1 - ratio) * 100)}% faster vs avg ({int(avg_s)}s)\""
+        else:
+            color   = "var(--text-dim)"
+            arrow   = ""
+            tooltip = f"title=\"avg: {int(avg_s)}s\""
+    else:
+        color   = "var(--text-dim)"
+        arrow   = ""
+        tooltip = ""
+
+    return (
+        f'<span class="duration-badge" style="color:{color};" {tooltip}>'
+        f'⏱ {label}{" " + arrow if arrow else ""}'
+        f'</span>'
+    )
+
+
 def _build_heatmap_squares(
     df_subset: pd.DataFrame,
     date_range: pd.DatetimeIndex,
@@ -185,12 +231,14 @@ def build_table_rows_html(df: pd.DataFrame) -> str:
                     exec_status   = exec_df["run_status"].min().lower()
                     log_link_exec = exec_df["scenario_link"].iloc[0].replace("settings", "runs/list")
 
+                    duration_html = _build_duration_badge(exec_df)
+
                     html_rows.append(f"""
                 <tr class="row-l3" data-status="{exec_status}" onclick="toggleRow(this, 'row-l4')">
                     <td style="padding-left: 120px;"><span class="material-symbols-outlined toggle-icon">chevron_right</span> Execution of {heure_exec}</td>
                     <td>{heure_exec}</td>
                     <td><span class="status {exec_status}"><span class="status-dot"></span>{exec_status.capitalize()}</span></td>
-                    <td><a href="{log_link_exec}" target="_blank" style="color:var(--primary)">Logs (right click + Open)</a></td>
+                    <td style="display:flex; align-items:center; gap:10px;">{duration_html}<a href="{log_link_exec}" target="_blank" style="color:var(--primary)">Logs (right click + Open)</a></td>
                 </tr>""")
 
                     # Tri par ordre d'exécution des steps (step_order = indice dans le scénario)
