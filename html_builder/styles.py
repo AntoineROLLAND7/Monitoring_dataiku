@@ -235,6 +235,13 @@ tr[class^="row-l"] { transition: background 0.2s; color: var(--text); }
 .stat-label  { font-size: 0.8rem;  font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;  padding-right: 44px; }
 .stat-label2 { font-size: 0.6rem;  font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; padding-right: 44px; }
 
+.duration-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 0.72rem; font-weight: 700;
+    background: rgba(0,0,0,0.04); border-radius: 6px;
+    padding: 2px 8px; white-space: nowrap;
+}
+
 /* --- TABLE FOOTER --- */
 .table-footer { background: #f8fafc; border-top: 1px solid #f1f5f9; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
 .table-footer-text { font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; }

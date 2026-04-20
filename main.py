@@ -92,7 +92,7 @@ def build_dashboard() -> str:
 
     # --- Étape 6 : Enrichissement des steps ---
     # Ajout des colonnes heure_exec, run_exec, step_id_short, error_category, etc.
-    df_steps_enriched = enrich_steps(df_step)
+    df_steps_enriched = enrich_steps(df_step, df)
 
     # --- Étape 7 : Assemblage HTML ---
     # Date du jour formatée pour le badge dans le header (ex: "April 14, 2025")

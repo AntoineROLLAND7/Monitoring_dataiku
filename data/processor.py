@@ -294,7 +294,7 @@ def compute_trend_30d(df_30d: pd.DataFrame) -> pd.DataFrame:
 # 5. ENRICHISSEMENT DES STEPS (pour le tableau drill-down)
 # =============================================================================
 
-def enrich_steps(df_step: pd.DataFrame) -> pd.DataFrame:
+def enrich_steps(df_step: pd.DataFrame, df_run: pd.DataFrame) -> pd.DataFrame:
     """
     Prépare le DataFrame des steps pour l'affichage dans le tableau hiérarchique.
 
@@ -305,9 +305,12 @@ def enrich_steps(df_step: pd.DataFrame) -> pd.DataFrame:
       4. Formate le type de step en version lisible (ex: "build_flowitem" → "BUILD")
       5. Construit un libellé court de step (type + nom, tronqué à 30 caractères)
       6. Assigne une catégorie d'erreur selon le type de step qui a échoué
+      7. Joint la durée d'exécution (run_time) depuis df_run et calcule l'indicateur de tendance
 
     Args:
         df_step : DataFrame brut des steps (issu de load_raw_data + normalize_statuses)
+        df_run  : DataFrame des runs scénario (issu de load_raw_data + normalize_statuses)
+                  Doit contenir les colonnes run_id et run_time.
 
     Returns:
         DataFrame enrichi prêt à être consommé par build_drill_down_html()
@@ -357,5 +360,34 @@ def enrich_steps(df_step: pd.DataFrame) -> pd.DataFrame:
         # On n'assigne la catégorie que si le step a FAILED (pas de catégorie d'erreur si succès)
         mask = (df_step["step_type"] == step_type) & (df_step[COL_STEP_RESULT] == "FAILED")
         df_step.loc[mask, "error_category"] = error_label
+
+    # --- 7. Durée d'exécution et indicateur de tendance ---
+    # run_time est au niveau scénario (dans df_run) : on le joint par run_id
+    if "run_time" in df_run.columns:
+        run_durations = (
+            df_run[["run_id", "run_time"]]
+            .drop_duplicates("run_id")
+            .copy()
+        )
+        # Conversion "0 days 00:00:55.573000000" → secondes (float)
+        run_durations["run_duration_s"] = (
+            pd.to_timedelta(run_durations["run_time"]).dt.total_seconds()
+        )
+        df_step = df_step.merge(
+            run_durations[["run_id", "run_duration_s"]], on="run_id", how="left"
+        )
+
+        # Moyenne par projet+scénario (sur la fenêtre 7j déjà filtrée)
+        avg_by_scenario = (
+            df_step.drop_duplicates(subset=["project_id", "scenario_id", "run_id"])
+            .groupby(["project_id", "scenario_id"])["run_duration_s"]
+            .mean()
+            .reset_index()
+            .rename(columns={"run_duration_s": "avg_duration_s"})
+        )
+        df_step = df_step.merge(avg_by_scenario, on=["project_id", "scenario_id"], how="left")
+    else:
+        df_step["run_duration_s"] = np.nan
+        df_step["avg_duration_s"] = np.nan
 
     return df_step
