@@ -8,45 +8,37 @@ import pandas as pd
 from config import COL_PROJECT_ID, COL_RUN_STATUS
 
 
-def _compute_peak_load(df: pd.DataFrame) -> dict:
+def _compute_load_curve(df: pd.DataFrame) -> dict:
     """
-    Calcule le pic de charge par jour : nombre maximum de runs simultanés
-    sur une fenêtre glissante de 30 minutes, et l'heure à laquelle il se produit.
-
-    Algorithme :
-      Pour chaque run (start_s, end_s), on compte combien d'autres runs
-      sont actifs en même temps. On discrétise par tranches de 5 minutes
-      pour rester performant.
+    Calcule la courbe de charge sur la journée : nombre de runs actifs simultanément
+    pour chaque tranche de 5 minutes (288 points par jour).
 
     Args:
         df : DataFrame issu de prepare_timeline_data()
 
     Returns:
-        dict {day_str: {"peak": int, "hour": "HH:MM", "projects": [str]}}
+        dict {day_str: {"counts": [int×288], "peak": int, "peak_slot": int}}
+          - counts    : liste de 288 valeurs (une par tranche de 5 min, 0h→24h)
+          - peak      : valeur maximale de counts
+          - peak_slot : index du slot au pic (pour affichage de l'heure)
     """
     result = {}
-    for day, day_df in df.groupby("run_day"):
-        # Discrétisation : on compte les runs actifs toutes les 5 minutes
-        slots = range(0, 86400, 300)  # 0h à 24h par pas de 5 min
-        max_count = 0
-        peak_slot = 0
-        peak_projects = []
+    slots = list(range(0, 86400, 300))  # 288 tranches de 5 min
 
+    for day, day_df in df.groupby("run_day"):
+        counts = []
         for slot in slots:
             slot_end = slot + 300
-            active = day_df[(day_df["start_s"] < slot_end) & (day_df["end_s"] > slot)]
-            count = len(active)
-            if count > max_count:
-                max_count = count
-                peak_slot = slot
-                peak_projects = active[COL_PROJECT_ID].unique().tolist()
+            n = int(((day_df["start_s"] < slot_end) & (day_df["end_s"] > slot)).sum())
+            counts.append(n)
 
-        h = peak_slot // 3600
-        m = (peak_slot % 3600) // 60
+        peak      = max(counts) if counts else 0
+        peak_slot = counts.index(peak) if peak > 0 else 0
+
         result[str(day)] = {
-            "peak":     max_count,
-            "hour":     f"{h:02d}:{m:02d}",
-            "projects": peak_projects,
+            "counts":    counts,
+            "peak":      peak,
+            "peak_slot": peak_slot,
         }
     return result
 
@@ -77,8 +69,8 @@ def build_timeline_html(df: pd.DataFrame) -> str:
     if "scenario_id" in df.columns:
         df["scenario_id"] = df["scenario_id"].fillna("unknown").astype(str)
 
-    # ── Calcul du pic de charge par jour ─────────────────────────────────────
-    peak_data = _compute_peak_load(df)
+    # ── Calcul de la courbe de charge par jour ────────────────────────────────
+    peak_data = _compute_load_curve(df)
 
     # ── Construction du dict de données JS ───────────────────────────────────
     # Structure : {day: {project: {scenario: [{s, e, d, st}]}}}
@@ -139,57 +131,41 @@ _HTML_SKELETON = """
             <div id="tl-day-btns" class="filter-bar"></div>
         </div>
 
-        <!-- ── Bloc Peak Load ─────────────────────────────────────────────── -->
-        <div id="tl-peak-bar" style="
-            display:flex;align-items:center;gap:24px;flex-wrap:wrap;
+        <!-- ── Graphique de charge (Load Chart) ───────────────────────────── -->
+        <!-- Aligné avec le Gantt : 220px de label à gauche + zone graphique -->
+        <div style="
             background:white;border:1px solid var(--border);border-radius:14px;
-            padding:14px 22px;margin-bottom:14px;
+            margin-bottom:6px;overflow:hidden;
             box-shadow:0 1px 4px rgba(0,0,0,.04);
         ">
-            <!-- Icône + titre -->
-            <div style="display:flex;align-items:center;gap:10px;min-width:160px;">
+            <!-- En-tête -->
+            <div style="display:flex;align-items:center;padding:8px 14px 4px;gap:8px;
+                        border-bottom:1px solid var(--border);">
                 <span class="material-symbols-outlined"
-                      style="font-size:22px;color:var(--primary);">bolt</span>
-                <div>
-                    <div style="font-size:.6rem;font-weight:900;text-transform:uppercase;
-                                letter-spacing:.08em;color:#94a3b8;">Peak Load</div>
-                    <div style="font-size:.72rem;font-weight:700;color:var(--text);">
-                        Concurrent runs
-                    </div>
+                      style="font-size:16px;color:var(--primary);">stacked_bar_chart</span>
+                <span style="font-size:.6rem;font-weight:900;text-transform:uppercase;
+                             letter-spacing:.08em;color:#94a3b8;">Concurrent Runs — Load Chart</span>
+                <span id="tl-lc-peak-lbl"
+                      style="margin-left:auto;font-size:.6rem;font-weight:800;color:#94a3b8;"></span>
+            </div>
+            <!-- Corps : label 220px + canvas -->
+            <div style="display:flex;align-items:stretch;">
+                <div style="width:220px;min-width:220px;padding:6px 14px;
+                            font-size:.58rem;font-weight:800;color:#94a3b8;
+                            text-transform:uppercase;letter-spacing:.06em;
+                            border-right:1px solid var(--border);
+                            display:flex;align-items:center;">
+                    Concurrent runs
                 </div>
-            </div>
-
-            <!-- Valeur principale -->
-            <div style="display:flex;align-items:baseline;gap:6px;">
-                <span id="tl-peak-count"
-                      style="font-size:2rem;font-weight:900;color:var(--text);
-                             letter-spacing:-.04em;line-height:1;">—</span>
-                <span style="font-size:.7rem;font-weight:700;color:#94a3b8;">runs</span>
-            </div>
-
-            <!-- Séparateur -->
-            <div style="width:1px;height:36px;background:var(--border);flex-shrink:0;"></div>
-
-            <!-- Heure du pic -->
-            <div>
-                <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;
-                            letter-spacing:.06em;color:#94a3b8;margin-bottom:2px;">at</div>
-                <div id="tl-peak-hour"
-                     style="font-size:1.1rem;font-weight:800;color:var(--primary);
-                            letter-spacing:-.02em;">—</div>
-            </div>
-
-            <!-- Séparateur -->
-            <div style="width:1px;height:36px;background:var(--border);flex-shrink:0;"></div>
-
-            <!-- Projets concernés -->
-            <div style="flex:1;min-width:120px;">
-                <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;
-                            letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">
-                    Projects involved
+                <div style="flex:1;position:relative;height:60px;overflow:hidden;">
+                    <canvas id="tl-load-canvas"
+                            style="width:100%;height:60px;display:block;"></canvas>
+                    <div id="tl-lc-tt" style="
+                        position:absolute;top:2px;left:50%;transform:translateX(-50%);
+                        font-size:.58rem;font-weight:800;color:var(--primary);
+                        pointer-events:none;white-space:nowrap;
+                    "></div>
                 </div>
-                <div id="tl-peak-projs"
-                     style="display:flex;flex-wrap:wrap;gap:4px;"></div>
             </div>
         </div>
 
@@ -485,56 +461,122 @@ function setupZoom(){
     });
 }
 
-// ── Bloc Peak Load ────────────────────────────────────────────────────────────
+// ── Load Chart (graphique de charge) ─────────────────────────────────────────
 /**
- * renderPeak()
- * Met à jour le bloc "Peak Load" au-dessus de la timeline pour le jour courant.
- * Appelée à chaque render() (changement de jour ou zoom).
+ * renderLoadChart()
+ * Dessine le graphique de charge sur le <canvas id="tl-load-canvas">.
  *
- * Affiche :
- *   - Le nombre de runs simultanés au pic
- *   - L'heure du pic (HH:MM)
- *   - Les badges des projets actifs au moment du pic
- *   - Coloration rouge si le pic est élevé (≥ 10 runs simultanés)
+ * Chaque barre représente une tranche de 5 minutes (288 barres sur 24h).
+ * La zone visible est alignée avec le Gantt (viewStart/viewEnd).
+ * Couleur des barres :
+ *   - 0 run    → transparent
+ *   - 1-4 runs → bleu primaire léger
+ *   - 5-9 runs → orange
+ *   - ≥ 10     → rouge
+ *
+ * Un tooltip flottant affiche le nombre de runs et l'heure au survol.
  */
-function renderPeak(){
-    const p=PEAK[cur];
-    const countEl=document.getElementById('tl-peak-count');
-    const hourEl =document.getElementById('tl-peak-hour');
-    const projsEl=document.getElementById('tl-peak-projs');
-    if(!countEl||!hourEl||!projsEl) return;
+function renderLoadChart(){
+    const canvas=document.getElementById('tl-load-canvas');
+    const peakLbl=document.getElementById('tl-lc-peak-lbl');
+    if(!canvas) return;
 
-    if(!p){
-        countEl.textContent='—';
-        hourEl.textContent='—';
-        projsEl.innerHTML='';
+    const p=PEAK[cur];
+    if(!p || !p.counts){
+        const ctx=canvas.getContext('2d');
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        if(peakLbl) peakLbl.textContent='';
         return;
     }
 
-    // Coloration du compteur : rouge si ≥ 10 runs simultanés, orange si ≥ 5
-    const peakColor = p.peak>=10 ? 'var(--failed)' : p.peak>=5 ? 'var(--warning)' : 'var(--text)';
-    countEl.textContent=p.peak;
-    countEl.style.color=peakColor;
-    hourEl.textContent=p.hour;
+    // Mise à jour du label de pic
+    if(peakLbl){
+        const ph=Math.floor(p.peak_slot*300/3600);
+        const pm=Math.floor((p.peak_slot*300%3600)/60);
+        const pTime=('0'+ph).slice(-2)+':'+('0'+pm).slice(-2);
+        const peakColor=p.peak>=10?'#f43f5e':p.peak>=5?'#f97316':'#4f46e5';
+        peakLbl.innerHTML=`Peak: <span style="color:${peakColor};font-weight:900;">${p.peak} runs</span> at ${pTime}`;
+    }
 
-    // Badges des projets impliqués au moment du pic (max 8 affichés)
-    const shown=p.projects.slice(0,8);
-    const extra=p.projects.length-shown.length;
-    projsEl.innerHTML=shown.map(proj=>`
-        <span style="
-            display:inline-block;padding:2px 8px;border-radius:20px;
-            font-size:.58rem;font-weight:800;letter-spacing:.03em;
-            background:rgba(79,70,229,.08);color:var(--primary);
-            border:1px solid rgba(79,70,229,.18);white-space:nowrap;
-        " title="${proj}">${proj.length>18?proj.slice(0,16)+'…':proj}</span>
-    `).join('')+(extra>0?`<span style="font-size:.6rem;color:#94a3b8;font-weight:700;align-self:center;">+${extra} more</span>`:'');
+    // Dimensionnement du canvas (DPR pour netteté sur écrans Retina)
+    const dpr=window.devicePixelRatio||1;
+    const rect=canvas.getBoundingClientRect();
+    canvas.width =Math.round(rect.width *dpr);
+    canvas.height=Math.round(rect.height*dpr);
+    const ctx=canvas.getContext('2d');
+    ctx.scale(dpr,dpr);
+
+    const W=rect.width, H=rect.height;
+    const counts=p.counts;          // 288 valeurs
+    const maxVal=Math.max(p.peak,1);
+    const SLOTS=288;
+    const SLOT_S=300;                // 5 min en secondes
+
+    // On ne dessine que les slots visibles (alignement avec viewStart/viewEnd)
+    const firstSlot=Math.floor(viewStart/SLOT_S);
+    const lastSlot =Math.ceil(viewEnd/SLOT_S);
+    const range=viewEnd-viewStart;
+
+    ctx.clearRect(0,0,W,H);
+
+    for(let i=firstSlot;i<lastSlot&&i<SLOTS;i++){
+        const slotStart=i*SLOT_S;
+        const slotEnd  =(i+1)*SLOT_S;
+        const x1=((Math.max(slotStart,viewStart)-viewStart)/range)*W;
+        const x2=((Math.min(slotEnd,viewEnd)   -viewStart)/range)*W;
+        const barW=Math.max(x2-x1,0.5);
+        const v=counts[i]||0;
+        if(v===0) continue;
+
+        const barH=Math.max((v/maxVal)*(H-4),2);
+        const y=H-barH;
+
+        // Couleur selon intensité
+        let color;
+        if(v>=10)      color='rgba(244,63,94,.80)';   // rouge
+        else if(v>=5)  color='rgba(249,115,22,.75)';  // orange
+        else           color='rgba(79,70,229,.55)';   // bleu primaire
+
+        ctx.fillStyle=color;
+        ctx.beginPath();
+        ctx.roundRect(x1+0.5, y, barW-1, barH, [2,2,0,0]);
+        ctx.fill();
+    }
+
+    // Ligne de base
+    ctx.strokeStyle='rgba(0,0,0,.06)';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(0,H-0.5);
+    ctx.lineTo(W,H-0.5);
+    ctx.stroke();
+
+    // Tooltip au survol
+    canvas.onmousemove=function(e){
+        const r=canvas.getBoundingClientRect();
+        const mx=e.clientX-r.left;
+        const ratio=mx/r.width;
+        const secs=viewStart+ratio*(viewEnd-viewStart);
+        const slot=Math.floor(secs/SLOT_S);
+        if(slot<0||slot>=SLOTS) return;
+        const v=counts[slot]||0;
+        const h=Math.floor(slot*SLOT_S/3600);
+        const m=Math.floor((slot*SLOT_S%3600)/60);
+        const timeStr=('0'+h).slice(-2)+':'+('0'+m).slice(-2);
+        const ttEl=document.getElementById('tl-lc-tt');
+        if(ttEl) ttEl.textContent=v>0?`${v} run${v>1?'s':''} @ ${timeStr}`:'';
+    };
+    canvas.onmouseleave=function(){
+        const ttEl=document.getElementById('tl-lc-tt');
+        if(ttEl) ttEl.textContent='';
+    };
 }
 
 // ── Render principal ──────────────────────────────────────────────────────────
 function render(){
     bStore={}; bSeq=0;
     renderBtns();
-    renderPeak();
+    renderLoadChart();
     const wrap=document.getElementById('tl-wrapper');
     if(!wrap) return;
 
