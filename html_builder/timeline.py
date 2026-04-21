@@ -60,6 +60,8 @@ def build_timeline_html(df: pd.DataFrame) -> str:
         "const DAYS=" + sorted_days_j + ";\n"
         "let cur="    + default_day_j + ";\n"
         "let expanded={};\n"
+        "let viewStart=0,viewEnd=86400;\n"
+        "let zoomSetupDone=false;\n"
         + _JS_BODY
         + "\n})();\n</script>\n"
     )
@@ -113,7 +115,7 @@ function nowSecs(){
     return n.getHours()*3600+n.getMinutes()*60+n.getSeconds();
 }
 
-// ── Background des tracks (lignes 6h/12h/18h) ────────────────────────────────
+// ── Background des tracks ─────────────────────────────────────────────────────
 const TRACK_BG=
     'background-color:#f8fafc;'+
     'background-image:linear-gradient(90deg,'+
@@ -121,12 +123,16 @@ const TRACK_BG=
     'transparent 50%,rgba(0,0,0,.07) 50%,rgba(0,0,0,.07) calc(50% + 1px),transparent calc(50% + 1px),'+
     'transparent 75%,rgba(0,0,0,.07) 75%,rgba(0,0,0,.07) calc(75% + 1px),transparent calc(75% + 1px));';
 
-// ── Bar store (évite les problèmes de quoting dans les onclick) ───────────────
+// ── Bar store ─────────────────────────────────────────────────────────────────
 let bStore={}, bSeq=0;
 
 function mkBar(run, proj, scen, h, top){
-    const w=Math.max((run.e-run.s)/864, 0.2);
-    const l=run.s/864;
+    const cs=Math.max(run.s, viewStart);
+    const ce=Math.min(run.e, viewEnd);
+    if(ce<=cs) return '';
+    const range=viewEnd-viewStart;
+    const l=(cs-viewStart)/range*100;
+    const w=Math.max((ce-cs)/range*100, 0.15);
     const ok=run.st==='success';
     const bg =ok?'rgba(16,185,129,.82)':'rgba(244,63,94,.85)';
     const brd=ok?'rgba(5,150,105,.4)' :'rgba(220,38,38,.4)';
@@ -206,16 +212,29 @@ function mkProjRow(proj, scenarios){
     return html;
 }
 
-// ── Axe des heures ────────────────────────────────────────────────────────────
+// ── Axe des heures (adaptatif selon le zoom) ──────────────────────────────────
 function mkAxis(){
+    const range=viewEnd-viewStart;
+    let step;
+    if(range>43200)      step=10800;
+    else if(range>21600) step=3600;
+    else if(range>7200)  step=1800;
+    else if(range>3600)  step=900;
+    else if(range>900)   step=300;
+    else                 step=60;
+
     let lbl='';
-    for(let h=0;h<=24;h+=3){
-        const x=(h/24*100).toFixed(2);
+    const firstTick=Math.ceil(viewStart/step)*step;
+    for(let s=firstTick; s<=viewEnd; s+=step){
+        const x=((s-viewStart)/range*100).toFixed(2);
+        const hh=Math.floor(s/3600);
+        const mm=Math.floor((s%3600)/60);
+        const timeStr=step<3600
+            ?('0'+hh).slice(-2)+':'+('0'+mm).slice(-2)
+            :('0'+hh).slice(-2)+'h';
         lbl+=`<span style="position:absolute;left:${x}%;transform:translateX(-50%);
             font-size:.6rem;font-weight:800;color:#94a3b8;
-            letter-spacing:.04em;user-select:none;">
-            ${('0'+h).slice(-2)}h
-        </span>`;
+            letter-spacing:.04em;user-select:none;">${timeStr}</span>`;
     }
     return `
     <div style="display:flex;align-items:stretch;border-bottom:2px solid var(--border);">
@@ -230,7 +249,9 @@ function mkAxis(){
 
 // ── Ligne NOW ─────────────────────────────────────────────────────────────────
 function mkNowLine(){
-    const x=(nowSecs()/86400*100).toFixed(3);
+    const ns=nowSecs();
+    if(ns<viewStart||ns>viewEnd) return '';
+    const x=((ns-viewStart)/(viewEnd-viewStart)*100).toFixed(3);
     return `<div id="tl-nl" style="position:absolute;left:${x}%;top:0;bottom:0;
         width:2px;background:var(--primary);opacity:.7;
         pointer-events:none;z-index:5;">
@@ -247,12 +268,79 @@ function mkNowLine(){
 function renderBtns(){
     const c=document.getElementById('tl-day-btns');
     if(!c) return;
+    const isZoomed=(viewEnd-viewStart)<86400;
+    const resetBtn=isZoomed
+        ?`<button class="tl-day-btn" onclick="tlResetZoom()"
+            style="background:rgba(79,70,229,.08);color:var(--primary);border:1px solid rgba(79,70,229,.25);margin-left:8px;">
+            ↺ Reset zoom
+          </button>`
+        :'';
     c.innerHTML=DAYS.map(d=>{
         const lbl=isToday(d)?'Today'
             :new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
         return `<button class="tl-day-btn${d===cur?' active':''}"
             onclick="tlSelectDay('${d}')">${lbl}</button>`;
-    }).join('');
+    }).join('')+resetBtn;
+}
+
+// ── Zoom & Pan ────────────────────────────────────────────────────────────────
+function setupZoom(){
+    if(zoomSetupDone) return;
+    zoomSetupDone=true;
+    const wrap=document.getElementById('tl-wrapper');
+    if(!wrap) return;
+
+    // Scroll to zoom (centered on cursor position within the track area)
+    wrap.addEventListener('wheel', function(e){
+        e.preventDefault();
+        const rect=wrap.getBoundingClientRect();
+        const trackWidth=rect.width-220;
+        if(trackWidth<=0) return;
+        const mouseX=e.clientX-(rect.left+220);
+        const ratio=Math.max(0,Math.min(1,mouseX/trackWidth));
+        const focalS=viewStart+ratio*(viewEnd-viewStart);
+        const zoomFactor=(e.deltaY||0)>0?1.3:0.77;
+        let newRange=Math.max(900,Math.min(86400,(viewEnd-viewStart)*zoomFactor));
+        let newStart=focalS-ratio*newRange;
+        let newEnd=focalS+(1-ratio)*newRange;
+        if(newStart<0){newEnd=Math.min(86400,newEnd-newStart);newStart=0;}
+        if(newEnd>86400){newStart=Math.max(0,newStart-(newEnd-86400));newEnd=86400;}
+        viewStart=Math.round(newStart);
+        viewEnd=Math.round(newEnd);
+        render();
+    },{passive:false});
+
+    // Drag to pan
+    let dragging=false,dragX=0,dragVS=0,dragVE=0,rafId=null;
+    wrap.addEventListener('mousedown',function(e){
+        const rect=wrap.getBoundingClientRect();
+        if(e.clientX-rect.left<220) return;
+        dragging=true; dragX=e.clientX; dragVS=viewStart; dragVE=viewEnd;
+        wrap.style.cursor='grabbing';
+        e.preventDefault();
+    });
+    document.addEventListener('mousemove',function(e){
+        if(!dragging) return;
+        if(rafId) return;
+        rafId=requestAnimationFrame(function(){
+            rafId=null;
+            const rect=wrap.getBoundingClientRect();
+            const trackWidth=rect.width-220;
+            if(trackWidth<=0) return;
+            const dsecs=-(e.clientX-dragX)/trackWidth*(dragVE-dragVS);
+            let ns=dragVS+dsecs, ne=dragVE+dsecs;
+            if(ns<0){ne-=ns;ns=0;}
+            if(ne>86400){ns-=(ne-86400);ne=86400;}
+            viewStart=Math.round(ns); viewEnd=Math.round(ne);
+            render();
+        });
+    });
+    document.addEventListener('mouseup',function(){
+        if(!dragging) return;
+        dragging=false;
+        const w=document.getElementById('tl-wrapper');
+        if(w) w.style.cursor=(viewEnd-viewStart)<86400?'grab':'default';
+    });
 }
 
 // ── Render principal ──────────────────────────────────────────────────────────
@@ -272,13 +360,16 @@ function render(){
     }
 
     const rows=projs.map(p=>mkProjRow(p, dayData[p])).join('');
-    const nowWrap=isToday(cur)
-        ?`<div style="position:absolute;top:28px;left:220px;right:0;bottom:0;pointer-events:none;">
-            ${mkNowLine()}
-          </div>`
+    const nl=isToday(cur)?mkNowLine():'';
+    const nowWrap=nl
+        ?`<div style="position:absolute;top:28px;left:220px;right:0;bottom:0;pointer-events:none;">${nl}</div>`
         :'';
 
     wrap.innerHTML=`<div style="position:relative;">${mkAxis()}${rows}${nowWrap}</div>`;
+
+    const isZoomed=(viewEnd-viewStart)<86400;
+    wrap.style.cursor=isZoomed?'grab':'default';
+    setupZoom();
 }
 
 // ── Événements ────────────────────────────────────────────────────────────────
@@ -287,7 +378,8 @@ window.tlToggle=function(proj){
     else expanded[proj]=true;
     render();
 };
-window.tlSelectDay=function(day){ cur=day; expanded={}; render(); };
+window.tlSelectDay=function(day){ cur=day; expanded={}; viewStart=0; viewEnd=86400; render(); };
+window.tlResetZoom=function(){ viewStart=0; viewEnd=86400; render(); };
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 window.tlTT=function(evt, id){
@@ -329,11 +421,8 @@ function moveTT(e){
 // ── Init ──────────────────────────────────────────────────────────────────────
 render();
 
-// Mise à jour de la ligne NOW toutes les 60s
+// Mise à jour de la ligne NOW toutes les 60s (re-render pour recalculer la position)
 if(isToday(cur)){
-    setInterval(()=>{
-        const l=document.getElementById('tl-nl');
-        if(l) l.style.left=(nowSecs()/86400*100).toFixed(3)+'%';
-    }, 60000);
+    setInterval(()=>{ if(isToday(cur)) render(); }, 60000);
 }
 """
