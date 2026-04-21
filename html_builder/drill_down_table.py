@@ -86,10 +86,10 @@ def _build_duration_badge(exec_df: pd.DataFrame) -> str:
         arrow   = ""
         tooltip = 'title="No previous runs to compare"'
 
+    arrow_html = f' <small style="font-size:.75em;">{arrow}</small>' if arrow else ""
     return (
         f'<span class="duration-badge" style="color:{color};cursor:help;" {tooltip}>'
-        f'⏱ {label}'
-        f'{" <small style=\'font-size:.75em;\'>" + arrow + "</small>" if arrow else ""}'
+        f'⏱ {label}{arrow_html}'
         f'</span>'
     )
 
