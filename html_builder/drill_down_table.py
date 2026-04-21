@@ -173,12 +173,21 @@ def build_table_rows_html(df: pd.DataFrame) -> str:
         failed_runs = project_df[project_df["run_status"] == "FAILED"]["run_id"].nunique()
         proj_status = "failed" if failed_runs > 0 else "success"
 
+        # Tags du projet (format "tag1,tag2" → attribut data-tags sur la ligne L1)
+        proj_tags_raw = ""
+        if "project_tags" in project_df.columns:
+            proj_tags_raw = str(project_df["project_tags"].iloc[0]).strip()
+        # Normalisation : minuscules, sans espaces autour des virgules
+        proj_tags_normalized = ",".join(
+            t.strip().lower() for t in proj_tags_raw.split(",") if t.strip()
+        )
+
         # Heatmap 7 jours du projet
         squares, stability = _build_heatmap_squares(project_df, date_range)
         heatmap = _heatmap_wrapper(squares, stability)
 
         html_rows.append(f"""
-    <tr class="row-l1" data-status="{proj_status}" onclick="toggleRow(this, 'row-l2')">
+    <tr class="row-l1" data-status="{proj_status}" data-tags="{proj_tags_normalized}" onclick="toggleRow(this, 'row-l2')">
         <td><span class="material-symbols-outlined toggle-icon">chevron_right</span> <strong>{project_id}</strong></td>
         <td>---</td>
         <td><span class="status {proj_status}"><span class="status-dot"></span>{proj_status.capitalize()}</span></td>
@@ -294,6 +303,19 @@ def build_drill_down_html(df: pd.DataFrame) -> str:
         f'<option value="{d}">{d}</option>' for d in available_dates
     )
 
+    # Calcul des tags disponibles (union de tous les tags de tous les projets)
+    all_tags: list = []
+    if "project_tags" in df.columns:
+        for tags_str in df["project_tags"].dropna().unique():
+            for tag in str(tags_str).split(","):
+                tag = tag.strip()
+                if tag and tag not in all_tags:
+                    all_tags.append(tag)
+    all_tags = sorted(all_tags)
+    tag_options = "\n".join(
+        f'<option value="{t}">{t}</option>' for t in all_tags
+    )
+
     return f"""
     <div class="container">
 
@@ -317,6 +339,10 @@ def build_drill_down_html(df: pd.DataFrame) -> str:
                 <select id="dateFilter" class="status-select" onchange="filterData()" title="Filter by run date">
                     <option value="all">📅 All Dates</option>
                     {date_options}
+                </select>
+                <select id="tagFilter" class="status-select" onchange="filterData()" title="Filter by project tag">
+                    <option value="all">🏷️ All Tags</option>
+                    {tag_options}
                 </select>
             </div>
         </div>
@@ -393,6 +419,12 @@ JAVASCRIPT = """
                 matchesStatus = (projectStatus === statusFilter);
             }
 
+            // ── Filtre tag ────────────────────────────────────────────────────
+            // data-tags contient les tags normalisés séparés par des virgules (ex: "crm,finance")
+            const tagFilter    = document.getElementById('tagFilter').value;
+            const projectTags  = (row.getAttribute('data-tags') || '').split(',').map(t => t.trim());
+            const matchesTag   = (tagFilter === 'all') || projectTags.includes(tagFilter.toLowerCase());
+
             // ── Filtre date ───────────────────────────────────────────────────
             // On collecte toutes les lignes enfants de ce projet (L2, L2bis, L3, L4)
             const children = getNextRows(row);
@@ -408,7 +440,7 @@ JAVASCRIPT = """
             }
 
             // ── Affichage / masquage du projet ────────────────────────────────
-            if (matchesSearch && matchesStatus && matchesDate) {
+            if (matchesSearch && matchesStatus && matchesTag && matchesDate) {
                 row.style.display = "";
 
                 if (dateFilter !== 'all') {

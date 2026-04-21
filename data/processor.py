@@ -387,6 +387,20 @@ def enrich_steps(df_step: pd.DataFrame, df_run: pd.DataFrame) -> pd.DataFrame:
         mask = (df_step["step_type"] == step_type) & (df_step[COL_STEP_RESULT] == "FAILED")
         df_step.loc[mask, "error_category"] = error_label
 
+    # --- 7b. Propagation des tags projet depuis df_run ---
+    # project_tags est une colonne du dataset scénario (format : "tag1,tag2,tag3")
+    # On la joint sur project_id pour l'avoir disponible dans le drill-down
+    if "project_tags" in df_run.columns:
+        proj_tags = (
+            df_run[["project_id", "project_tags"]]
+            .drop_duplicates("project_id")
+            .copy()
+        )
+        df_step = df_step.merge(proj_tags, on="project_id", how="left")
+        df_step["project_tags"] = df_step["project_tags"].fillna("")
+    else:
+        df_step["project_tags"] = ""
+
     # --- 7. Durée d'exécution et indicateur de tendance ---
     if "run_time" in df_run.columns:
         run_durations = (
