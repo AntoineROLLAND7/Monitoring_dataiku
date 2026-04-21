@@ -1,0 +1,11 @@
+import anthropic
+
+client = anthropic.Anthropic(api_key="ta_clé")
+
+response = client.messages.create(
+    model="claude-sonnet-4-20250514",
+    max_tokens=100,
+    messages=[{"role": "user", "content": "Hello"}]
+)
+
+print(response.content[0].text)
