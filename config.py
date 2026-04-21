@@ -70,16 +70,17 @@ STATUS_NORMALIZE = {
 # Définissent les niveaux de couleur de la heatmap calendrier 30 jours.
 # Le taux calculé est le % de projets ayant eu 100% de runs SUCCESS sur la journée.
 #
-#   perfect  : 100% des projets OK          → vert
-#   warning  : entre 80% et 100% des projets OK → orange
-#   critical : moins de 80% des projets OK  → rouge
+# Logique d'attribution (dans data_processor.py) :
+#   pct == 100                          → "perfect"  (vert)
+#   HEALTH_THRESHOLDS["critical"] <= pct < 100  → "warning"  (orange)
+#   pct < HEALTH_THRESHOLDS["critical"] → "critical" (rouge)
 #
-# Note : la logique d'attribution est implémentée dans data_processor.py
+# ⚠️  Ne modifier que la valeur "critical" : le seuil "perfect" est toujours 100%.
 
 HEALTH_THRESHOLDS = {
     "critical": 80,   # En dessous de ce seuil → statut "critical" (rouge)
-    "warning": 100,   # En dessous de ce seuil (et >= critical) → "warning" (orange)
-    "perfect": 100,   # Égal à ce seuil → statut "perfect" (vert)
+    # "perfect" est implicitement 100% : tout projet à 100% est vert.
+    # "warning" est la zone intermédiaire : entre critical et 100%.
 }
 
 

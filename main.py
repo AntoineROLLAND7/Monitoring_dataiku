@@ -34,6 +34,7 @@ from data.processor import (
     filter_by_window,        # Restreint aux N derniers jours
     compute_kpis_7d,         # Calcule les indicateurs pour les cartes KPI
     compute_trend_30d,       # Prépare la série journalière pour la heatmap
+    compute_heatmap_7d,      # Pré-agrège les heatmaps 7j par projet/scénario
     enrich_steps,            # Enrichit les steps pour le tableau drill-down
     prepare_timeline_data,   # Prépare les données pour le graphique timeline
 )
