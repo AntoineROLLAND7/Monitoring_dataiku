@@ -88,11 +88,20 @@ def build_timeline_html(df: pd.DataFrame) -> str:
         proj = str(row[COL_PROJECT_ID])
         scen = str(row.get("scenario_id", "?"))
         days_data.setdefault(day, {}).setdefault(proj, {}).setdefault(scen, [])
+
+        # avg_duration_s et n_runs_avg peuvent être NaN si pas assez de runs précédents
+        avg_raw   = row.get("avg_duration_s")
+        n_raw     = row.get("n_runs_avg")
+        avg_val   = round(float(avg_raw), 1) if avg_raw is not None and avg_raw == avg_raw else None
+        n_val     = int(n_raw) if n_raw is not None and n_raw == n_raw else None
+
         days_data[day][proj][scen].append({
-            "s":  int(round(float(row["start_s"]))),
-            "e":  int(round(float(row["end_s"]))),
-            "d":  int(round(float(row["run_duration_s"]))),
-            "st": str(row[COL_RUN_STATUS]).lower(),
+            "s":   int(round(float(row["start_s"]))),
+            "e":   int(round(float(row["end_s"]))),
+            "d":   int(round(float(row["run_duration_s"]))),
+            "st":  str(row[COL_RUN_STATUS]).lower(),
+            "avg": avg_val,   # Durée moyenne des N runs précédents (secondes), ou null
+            "n":   n_val,     # Nombre de runs utilisés pour la moyenne
         })
 
     sorted_days   = sorted(days_data.keys(), reverse=True)
@@ -230,6 +239,24 @@ const TRACK_BG=
 // ── Bar store ─────────────────────────────────────────────────────────────────
 let bStore={}, bSeq=0;
 
+/**
+ * durTrend(run)
+ * Calcule le ratio durée actuelle / moyenne des N runs précédents.
+ * Retourne un objet {ratio, label, color, outline} pour colorer la barre.
+ *
+ * Seuils (identiques au drill-down) :
+ *   ratio > 1.3  → barre orange vif  (plus lent que d'habitude)
+ *   ratio < 0.7  → barre vert vif    (plus rapide que d'habitude)
+ *   sinon        → couleur normale (vert/rouge selon statut)
+ */
+function durTrend(run){
+    if(run.avg===null||run.avg===undefined||run.avg<=0) return null;
+    const ratio=run.d/run.avg;
+    if(ratio>1.3) return {ratio, label:'slow',  color:'rgba(251,146,60,.92)', outline:'rgba(234,88,12,.5)'};
+    if(ratio<0.7) return {ratio, label:'fast',  color:'rgba(52,211,153,.92)', outline:'rgba(16,185,129,.5)'};
+    return null; // Dans la norme → couleur par défaut
+}
+
 function mkBar(run, proj, scen, h, top){
     const cs=Math.max(run.s, viewStart);
     const ce=Math.min(run.e, viewEnd);
@@ -238,13 +265,24 @@ function mkBar(run, proj, scen, h, top){
     const l=(cs-viewStart)/range*100;
     const w=Math.max((ce-cs)/range*100, 0.15);
     const ok=run.st==='success';
-    const bg =ok?'rgba(16,185,129,.82)':'rgba(244,63,94,.85)';
-    const brd=ok?'rgba(5,150,105,.4)' :'rgba(220,38,38,.4)';
+
+    // Couleur de base selon le statut
+    let bg =ok?'rgba(16,185,129,.82)':'rgba(244,63,94,.85)';
+    let brd=ok?'rgba(5,150,105,.4)' :'rgba(220,38,38,.4)';
+
+    // Override couleur si durée anormale (seulement pour les runs en succès,
+    // pour ne pas masquer les échecs)
+    const trend=durTrend(run);
+    if(trend && ok){
+        bg  = trend.color;
+        brd = trend.outline;
+    }
+
     const id='tlb'+(bSeq++);
-    bStore[id]={proj, scen, s:run.s, e:run.e, d:run.d, st:run.st};
+    bStore[id]={proj, scen, s:run.s, e:run.e, d:run.d, st:run.st, avg:run.avg, n:run.n};
     return `<div id="${id}"
         onmouseenter="tlTT(event,'${id}')" onmouseleave="tlHTT()"
-        onmouseover="this.style.filter='brightness(1.2)'"
+        onmouseover="this.style.filter='brightness(1.15)'"
         onmouseout="this.style.filter=''"
         style="position:absolute;left:${l.toFixed(3)}%;width:${w.toFixed(3)}%;
                top:${top};height:${h};border-radius:4px;
@@ -537,6 +575,35 @@ window.tlTT=function(evt, id){
     const tt=document.getElementById('tl-tt');
     const dot=d.st==='success'?'var(--success)':'var(--failed)';
     const stLbl=d.st==='success'?'Success':'Failed';
+
+    // ── Indicateur de tendance durée ──────────────────────────────────────────
+    let trendHtml='';
+    if(d.avg && d.avg>0){
+        const ratio=d.d/d.avg;
+        const nLbl=d.n?d.n+' runs':'prev. runs';
+        const avgLbl=fmtDur(d.avg);
+        if(ratio>1.3){
+            const pct=Math.round((ratio-1)*100);
+            trendHtml=`<div style="margin-top:6px;padding:4px 8px;border-radius:6px;
+                background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.3);
+                font-size:.62rem;font-weight:800;color:rgb(234,88,12);">
+                ⬆ +${pct}% vs avg ${avgLbl} (last ${nLbl})
+            </div>`;
+        } else if(ratio<0.7){
+            const pct=Math.round((1-ratio)*100);
+            trendHtml=`<div style="margin-top:6px;padding:4px 8px;border-radius:6px;
+                background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3);
+                font-size:.62rem;font-weight:800;color:rgb(5,150,105);">
+                ⬇ -${pct}% vs avg ${avgLbl} (last ${nLbl})
+            </div>`;
+        } else {
+            const pct=Math.round(Math.abs(ratio-1)*100);
+            trendHtml=`<div style="margin-top:6px;font-size:.6rem;color:#94a3b8;font-weight:600;">
+                ≈ avg ${avgLbl} (±${pct}%, last ${nLbl})
+            </div>`;
+        }
+    }
+
     tt.innerHTML=`
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
         <div style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0;"></div>
@@ -546,6 +613,7 @@ window.tlTT=function(evt, id){
     <div style="font-size:1.2rem;font-weight:900;color:var(--text);letter-spacing:-.03em;">
         ${fmtDur(d.d)}
     </div>
+    ${trendHtml}
     <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);
                 font-size:.65rem;color:var(--text-dim);">
         ${fmtTime(d.s)} &rarr; ${fmtTime(d.e)}
