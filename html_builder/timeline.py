@@ -8,11 +8,55 @@ import pandas as pd
 from config import COL_PROJECT_ID, COL_RUN_STATUS
 
 
+def _compute_peak_load(df: pd.DataFrame) -> dict:
+    """
+    Calcule le pic de charge par jour : nombre maximum de runs simultanés
+    sur une fenêtre glissante de 30 minutes, et l'heure à laquelle il se produit.
+
+    Algorithme :
+      Pour chaque run (start_s, end_s), on compte combien d'autres runs
+      sont actifs en même temps. On discrétise par tranches de 5 minutes
+      pour rester performant.
+
+    Args:
+        df : DataFrame issu de prepare_timeline_data()
+
+    Returns:
+        dict {day_str: {"peak": int, "hour": "HH:MM", "projects": [str]}}
+    """
+    result = {}
+    for day, day_df in df.groupby("run_day"):
+        # Discrétisation : on compte les runs actifs toutes les 5 minutes
+        slots = range(0, 86400, 300)  # 0h à 24h par pas de 5 min
+        max_count = 0
+        peak_slot = 0
+        peak_projects = []
+
+        for slot in slots:
+            slot_end = slot + 300
+            active = day_df[(day_df["start_s"] < slot_end) & (day_df["end_s"] > slot)]
+            count = len(active)
+            if count > max_count:
+                max_count = count
+                peak_slot = slot
+                peak_projects = active[COL_PROJECT_ID].unique().tolist()
+
+        h = peak_slot // 3600
+        m = (peak_slot % 3600) // 60
+        result[str(day)] = {
+            "peak":     max_count,
+            "hour":     f"{h:02d}:{m:02d}",
+            "projects": peak_projects,
+        }
+    return result
+
+
 def build_timeline_html(df: pd.DataFrame) -> str:
     """
     Génère le composant timeline auto-contenu (HTML + JS inline).
 
     Chaque jour est rendu avec :
+      - Un bloc "Peak Load" au-dessus de la timeline (heure de pic + nb de runs simultanés)
       - Une ligne par projet (barres de tous les scénarios overlaid)
       - Drill-down par clic : une sous-ligne par scénario
       - Sélecteur de jour (7 derniers jours)
@@ -33,6 +77,9 @@ def build_timeline_html(df: pd.DataFrame) -> str:
     if "scenario_id" in df.columns:
         df["scenario_id"] = df["scenario_id"].fillna("unknown").astype(str)
 
+    # ── Calcul du pic de charge par jour ─────────────────────────────────────
+    peak_data = _compute_peak_load(df)
+
     # ── Construction du dict de données JS ───────────────────────────────────
     # Structure : {day: {project: {scenario: [{s, e, d, st}]}}}
     days_data: dict = {}
@@ -51,12 +98,14 @@ def build_timeline_html(df: pd.DataFrame) -> str:
     sorted_days   = sorted(days_data.keys(), reverse=True)
     default_day   = sorted_days[0] if sorted_days else ""
     js_data       = json.dumps(days_data,  ensure_ascii=False, separators=(",", ":"))
+    peak_data_j   = json.dumps(peak_data,  ensure_ascii=False, separators=(",", ":"))
     sorted_days_j = json.dumps(sorted_days, ensure_ascii=False)
     default_day_j = json.dumps(default_day)
 
     script = (
         "<script>\n(function(){\n"
         "const D="    + js_data       + ";\n"
+        "const PEAK=" + peak_data_j   + ";\n"
         "const DAYS=" + sorted_days_j + ";\n"
         "let cur="    + default_day_j + ";\n"
         "let expanded={};\n"
@@ -80,6 +129,61 @@ _HTML_SKELETON = """
             </div>
             <div id="tl-day-btns" class="filter-bar"></div>
         </div>
+
+        <!-- ── Bloc Peak Load ─────────────────────────────────────────────── -->
+        <div id="tl-peak-bar" style="
+            display:flex;align-items:center;gap:24px;flex-wrap:wrap;
+            background:white;border:1px solid var(--border);border-radius:14px;
+            padding:14px 22px;margin-bottom:14px;
+            box-shadow:0 1px 4px rgba(0,0,0,.04);
+        ">
+            <!-- Icône + titre -->
+            <div style="display:flex;align-items:center;gap:10px;min-width:160px;">
+                <span class="material-symbols-outlined"
+                      style="font-size:22px;color:var(--primary);">bolt</span>
+                <div>
+                    <div style="font-size:.6rem;font-weight:900;text-transform:uppercase;
+                                letter-spacing:.08em;color:#94a3b8;">Peak Load</div>
+                    <div style="font-size:.72rem;font-weight:700;color:var(--text);">
+                        Concurrent runs
+                    </div>
+                </div>
+            </div>
+
+            <!-- Valeur principale -->
+            <div style="display:flex;align-items:baseline;gap:6px;">
+                <span id="tl-peak-count"
+                      style="font-size:2rem;font-weight:900;color:var(--text);
+                             letter-spacing:-.04em;line-height:1;">—</span>
+                <span style="font-size:.7rem;font-weight:700;color:#94a3b8;">runs</span>
+            </div>
+
+            <!-- Séparateur -->
+            <div style="width:1px;height:36px;background:var(--border);flex-shrink:0;"></div>
+
+            <!-- Heure du pic -->
+            <div>
+                <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;
+                            letter-spacing:.06em;color:#94a3b8;margin-bottom:2px;">at</div>
+                <div id="tl-peak-hour"
+                     style="font-size:1.1rem;font-weight:800;color:var(--primary);
+                            letter-spacing:-.02em;">—</div>
+            </div>
+
+            <!-- Séparateur -->
+            <div style="width:1px;height:36px;background:var(--border);flex-shrink:0;"></div>
+
+            <!-- Projets concernés -->
+            <div style="flex:1;min-width:120px;">
+                <div style="font-size:.58rem;font-weight:800;text-transform:uppercase;
+                            letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">
+                    Projects involved
+                </div>
+                <div id="tl-peak-projs"
+                     style="display:flex;flex-wrap:wrap;gap:4px;"></div>
+            </div>
+        </div>
+
         <div class="chart-card" style="overflow:hidden;padding:0;">
             <div id="tl-wrapper" style="padding:0 0 12px;"></div>
         </div>
@@ -343,10 +447,56 @@ function setupZoom(){
     });
 }
 
+// ── Bloc Peak Load ────────────────────────────────────────────────────────────
+/**
+ * renderPeak()
+ * Met à jour le bloc "Peak Load" au-dessus de la timeline pour le jour courant.
+ * Appelée à chaque render() (changement de jour ou zoom).
+ *
+ * Affiche :
+ *   - Le nombre de runs simultanés au pic
+ *   - L'heure du pic (HH:MM)
+ *   - Les badges des projets actifs au moment du pic
+ *   - Coloration rouge si le pic est élevé (≥ 10 runs simultanés)
+ */
+function renderPeak(){
+    const p=PEAK[cur];
+    const countEl=document.getElementById('tl-peak-count');
+    const hourEl =document.getElementById('tl-peak-hour');
+    const projsEl=document.getElementById('tl-peak-projs');
+    if(!countEl||!hourEl||!projsEl) return;
+
+    if(!p){
+        countEl.textContent='—';
+        hourEl.textContent='—';
+        projsEl.innerHTML='';
+        return;
+    }
+
+    // Coloration du compteur : rouge si ≥ 10 runs simultanés, orange si ≥ 5
+    const peakColor = p.peak>=10 ? 'var(--failed)' : p.peak>=5 ? 'var(--warning)' : 'var(--text)';
+    countEl.textContent=p.peak;
+    countEl.style.color=peakColor;
+    hourEl.textContent=p.hour;
+
+    // Badges des projets impliqués au moment du pic (max 8 affichés)
+    const shown=p.projects.slice(0,8);
+    const extra=p.projects.length-shown.length;
+    projsEl.innerHTML=shown.map(proj=>`
+        <span style="
+            display:inline-block;padding:2px 8px;border-radius:20px;
+            font-size:.58rem;font-weight:800;letter-spacing:.03em;
+            background:rgba(79,70,229,.08);color:var(--primary);
+            border:1px solid rgba(79,70,229,.18);white-space:nowrap;
+        " title="${proj}">${proj.length>18?proj.slice(0,16)+'…':proj}</span>
+    `).join('')+(extra>0?`<span style="font-size:.6rem;color:#94a3b8;font-weight:700;align-self:center;">+${extra} more</span>`:'');
+}
+
 // ── Render principal ──────────────────────────────────────────────────────────
 function render(){
     bStore={}; bSeq=0;
     renderBtns();
+    renderPeak();
     const wrap=document.getElementById('tl-wrapper');
     if(!wrap) return;
 
