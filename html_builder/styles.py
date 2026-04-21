@@ -252,6 +252,24 @@ tr[class^="row-l"] { transition: background 0.2s; color: var(--text); }
 .tl-day-btn:hover  { border-color: var(--primary); color: var(--primary); }
 .tl-day-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
+/* --- TABS --- */
+.tab-bar {
+    display: flex; gap: 4px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 24px;
+}
+.tab-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border: none; background: transparent;
+    font-family: 'Inter', sans-serif; font-size: 0.88rem; font-weight: 700;
+    color: var(--text-dim); cursor: pointer;
+    border-bottom: 3px solid transparent; margin-bottom: -2px;
+    border-radius: 6px 6px 0 0; transition: all 0.2s;
+}
+.tab-btn:hover  { color: var(--text); background: rgba(79,70,229,0.04); }
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary);
+                  background: rgba(79,70,229,0.04); }
+
 /* --- TABLE FOOTER --- */
 .table-footer { background: #f8fafc; border-top: 1px solid #f1f5f9; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
 .table-footer-text { font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; }

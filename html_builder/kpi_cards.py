@@ -81,8 +81,50 @@ def build_kpi_cards_html(
                 <div class="card-value-wrapper">
                     {calendar_html}
                 </div>
+                <div style="display:flex;justify-content:center;gap:10px;
+                            padding-top:6px;margin-top:4px;
+                            border-top:1px solid var(--border);">
+                    <span style="display:flex;align-items:center;gap:4px;">
+                        <span style="width:9px;height:9px;border-radius:2px;
+                                     background:var(--success);display:inline-block;flex-shrink:0;"></span>
+                        <span style="font-size:0.55rem;font-weight:800;color:var(--success);
+                                     text-transform:uppercase;letter-spacing:.04em;">Steady</span>
+                    </span>
+                    <span style="display:flex;align-items:center;gap:4px;">
+                        <span style="width:9px;height:9px;border-radius:2px;
+                                     background:var(--warning);display:inline-block;flex-shrink:0;"></span>
+                        <span style="font-size:0.55rem;font-weight:800;color:var(--warning);
+                                     text-transform:uppercase;letter-spacing:.04em;">Unstable</span>
+                    </span>
+                    <span style="display:flex;align-items:center;gap:4px;">
+                        <span style="width:9px;height:9px;border-radius:2px;
+                                     background:var(--failed);display:inline-block;flex-shrink:0;"></span>
+                        <span style="font-size:0.55rem;font-weight:800;color:var(--failed);
+                                     text-transform:uppercase;letter-spacing:.04em;">Critical</span>
+                    </span>
+                </div>
             </div>
 
+        </div>
+
+        <div style="display:flex;align-items:center;gap:18px;padding:4px 2px 14px;flex-wrap:wrap;">
+            <span style="font-size:0.58rem;font-weight:900;text-transform:uppercase;
+                         letter-spacing:.08em;color:#94a3b8;">Legend</span>
+            <span style="display:flex;align-items:center;gap:6px;">
+                <span style="width:8px;height:8px;border-radius:50%;
+                             background:var(--success);display:inline-block;flex-shrink:0;"></span>
+                <span style="font-size:0.6rem;font-weight:700;color:var(--success);">Steady — no failures</span>
+            </span>
+            <span style="display:flex;align-items:center;gap:6px;">
+                <span style="width:8px;height:8px;border-radius:50%;
+                             background:var(--warning);display:inline-block;flex-shrink:0;"></span>
+                <span style="font-size:0.6rem;font-weight:700;color:var(--warning);">Unstable — isolated failure</span>
+            </span>
+            <span style="display:flex;align-items:center;gap:6px;">
+                <span style="width:8px;height:8px;border-radius:50%;
+                             background:var(--failed);display:inline-block;flex-shrink:0;"></span>
+                <span style="font-size:0.6rem;font-weight:700;color:var(--failed);">Critical — recurring failures</span>
+            </span>
         </div>
     </div>
 """

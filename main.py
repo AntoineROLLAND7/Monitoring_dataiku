@@ -49,6 +49,30 @@ from html_builder.drill_down_table import (
 )
 from html_builder.timeline import build_timeline_html  # Graphique Gantt concurrence
 
+# Barre de navigation par onglets (HTML + JS de switching)
+_TAB_BAR = """
+    <div class="container">
+        <nav class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab(this,'tab-overview')">
+                <span class="material-symbols-outlined" style="font-size:18px;">dashboard</span>
+                Overview &amp; Drill-down
+            </button>
+            <button class="tab-btn" onclick="switchTab(this,'tab-timeline')">
+                <span class="material-symbols-outlined" style="font-size:18px;">timeline</span>
+                Execution Timeline
+            </button>
+        </nav>
+    </div>
+    <script>
+    function switchTab(btn, tabId) {
+        document.querySelectorAll('[id^="tab-"]').forEach(p => p.style.display = 'none');
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).style.display = 'block';
+        btn.classList.add('active');
+    }
+    </script>
+"""
+
 
 # =============================================================================
 # PIPELINE PRINCIPAL
@@ -107,6 +131,10 @@ def build_dashboard() -> str:
     html  = get_html_head()                          # <!DOCTYPE html> ... <head> ... </head>
     html += "<body>\n"
     html += build_header_html(date_str)              # Bandeau titre + badge date
+    html += _TAB_BAR
+
+    # ── Onglet 1 : KPI + Drill-down ──────────────────────────────────────────
+    html += '<div id="tab-overview" style="display:block;">'
     html += build_kpi_cards_html(
         distinct_projects    = kpis["distinct_projects"],
         failed_projects_24h  = kpis["failed_projects_24h"],
@@ -115,8 +143,13 @@ def build_dashboard() -> str:
         avg_success_projects = kpis["avg_success_projects"],
         calendar_html        = calendar_html,
     )
-    html += build_timeline_html(df_timeline)          # Gantt : concurrence des exécutions
-    html += build_drill_down_html(df_steps_enriched)  # Filtres + tableau hiérarchique
+    html += build_drill_down_html(df_steps_enriched)
+    html += '</div>'
+
+    # ── Onglet 2 : Timeline des exécutions ───────────────────────────────────
+    html += '<div id="tab-timeline" style="display:none;">'
+    html += build_timeline_html(df_timeline)
+    html += '</div>'
     html += "\n    </main>\n"
     html += JAVASCRIPT                               # JS accordéon + filtrage (fin de body)
     html += "\n</body>\n</html>"
