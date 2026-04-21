@@ -97,8 +97,8 @@ def build_dashboard() -> str:
     df_timeline = prepare_timeline_data(df)
 
     # --- Étape 7 : Assemblage HTML ---
-    # Date du jour formatée pour le badge dans le header (ex: "April 14, 2025")
-    date_str = datetime.today().strftime("%B %d, %Y")
+    # Date + heure de génération pour le badge dans le header (ex: "April 14, 2025 — 14:32")
+    date_str = datetime.today().strftime("%B %d, %Y — %H:%M")
 
     # La heatmap calendrier est construite séparément pour être injectée dans la carte KPI
     calendar_html = build_calendar_html(trend_30d)

@@ -18,7 +18,7 @@ def build_header_html(date_str: str) -> str:
         </div>
         <div class="data-badge">
             <span class="pulse-dot"></span>
-            Date: <span id="current-timestamp">{date_str}</span>
+            Last update: <span id="current-timestamp">{date_str}</span>
         </div>
     </div>
 """
