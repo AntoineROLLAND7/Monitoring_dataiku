@@ -387,19 +387,7 @@ def enrich_steps(df_step: pd.DataFrame, df_run: pd.DataFrame) -> pd.DataFrame:
         mask = (df_step["step_type"] == step_type) & (df_step[COL_STEP_RESULT] == "FAILED")
         df_step.loc[mask, "error_category"] = error_label
 
-    # --- 7b. Propagation des tags projet depuis df_run ---
-    # project_tags est une colonne du dataset scénario (format : "tag1,tag2,tag3")
-    # On la joint sur project_id pour l'avoir disponible dans le drill-down
-    if "project_tags" in df_run.columns:
-        proj_tags = (
-            df_run[["project_id", "project_tags"]]
-            .drop_duplicates("project_id")
-            .copy()
-        )
-        df_step = df_step.merge(proj_tags, on="project_id", how="left")
-        df_step["project_tags"] = df_step["project_tags"].fillna("")
-    else:
-        df_step["project_tags"] = ""
+    df_step["project_tags"] = df_step["project_tags"].fillna("")
 
     # --- 7. Durée d'exécution et indicateur de tendance ---
     if "run_time" in df_run.columns:
@@ -415,14 +403,37 @@ def enrich_steps(df_step: pd.DataFrame, df_run: pd.DataFrame) -> pd.DataFrame:
             run_durations[["run_id", "run_duration_s"]], on="run_id", how="left"
         )
 
-        avg_by_scenario = (
+        # Moyenne glissante sur les N dernières exécutions du même scénario
+        # On trie par run_id (qui encode la date) pour avoir l'ordre chronologique
+        N_LAST_RUNS = 10  # Nombre de runs précédents à considérer pour la moyenne
+
+        runs_dedup = (
             df_step.drop_duplicates(subset=["project_id", "scenario_id", "run_id"])
-            .groupby(["project_id", "scenario_id"])["run_duration_s"]
-            .mean()
-            .reset_index()
-            .rename(columns={"run_duration_s": "avg_duration_s"})
+            [["project_id", "scenario_id", "run_id", "run_duration_s"]]
+            .sort_values(["project_id", "scenario_id", "run_id"])
+            .copy()
         )
-        df_step = df_step.merge(avg_by_scenario, on=["project_id", "scenario_id"], how="left")
+
+        # Pour chaque run, on calcule la moyenne des N runs PRÉCÉDENTS (excluant le run courant)
+        # en utilisant un expanding/rolling avec shift(1) pour éviter le data leakage
+        runs_dedup["avg_duration_s"] = (
+            runs_dedup
+            .groupby(["project_id", "scenario_id"])["run_duration_s"]
+            .transform(lambda x: x.shift(1).rolling(window=N_LAST_RUNS, min_periods=1).mean())
+        )
+
+        # Nombre de runs utilisés pour la moyenne (pour l'afficher dans le tooltip)
+        runs_dedup["n_runs_avg"] = (
+            runs_dedup
+            .groupby(["project_id", "scenario_id"])["run_duration_s"]
+            .transform(lambda x: x.shift(1).rolling(window=N_LAST_RUNS, min_periods=1).count())
+        )
+
+        df_step = df_step.merge(
+            runs_dedup[["project_id", "scenario_id", "run_id", "avg_duration_s", "n_runs_avg"]],
+            on=["project_id", "scenario_id", "run_id"],
+            how="left"
+        )
     else:
         df_step["run_duration_s"] = np.nan
         df_step["avg_duration_s"] = np.nan

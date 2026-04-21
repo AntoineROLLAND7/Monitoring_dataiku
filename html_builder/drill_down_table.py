@@ -24,48 +24,72 @@ from datetime import timedelta
 # FONCTIONS HELPERS (privées, usage interne uniquement)
 # =============================================================================
 
+def _fmt_duration(seconds: float) -> str:
+    """Formate une durée en secondes en chaîne lisible (ex: 2m 34s, 1h 05m)."""
+    s = int(round(seconds))
+    if s < 60:
+        return f"{s}s"
+    if s < 3600:
+        return f"{s // 60}m {s % 60:02d}s"
+    return f"{s // 3600}h {(s % 3600) // 60:02d}m"
+
+
 def _build_duration_badge(exec_df: pd.DataFrame) -> str:
     """
     Génère un badge HTML affichant la durée d'exécution et un indicateur visuel
-    si la durée est significativement différente de la moyenne du scénario.
+    si la durée est significativement différente de la moyenne des N dernières
+    exécutions du même scénario.
 
     Seuils :
-      - > 1.3× la moyenne → ⬆ rouge  (plus lent que d'habitude)
-      - < 0.7× la moyenne → ⬇ vert   (plus rapide que d'habitude)
-      - sinon             → pas d'indicateur (durée affichée en gris)
+      - > 1.3× la moyenne → ⬆ rouge  (significativement plus lent)
+      - < 0.7× la moyenne → ⬇ vert   (significativement plus rapide)
+      - sinon             → ≈ gris    (dans la norme)
+
+    Le tooltip affiche :
+      - La durée actuelle
+      - La moyenne de référence (sur N runs précédents)
+      - Le nombre de runs utilisés pour la moyenne
+      - L'écart en %
     """
     duration_s = exec_df["run_duration_s"].iloc[0] if "run_duration_s" in exec_df.columns else None
     avg_s      = exec_df["avg_duration_s"].iloc[0]  if "avg_duration_s"  in exec_df.columns else None
+    n_runs     = exec_df["n_runs_avg"].iloc[0]       if "n_runs_avg"      in exec_df.columns else None
 
     if duration_s is None or pd.isna(duration_s):
         return ""
 
-    mins = int(duration_s // 60)
-    secs = int(duration_s % 60)
-    label = f"{mins}m {secs}s" if mins > 0 else f"{secs}s"
+    label = _fmt_duration(duration_s)
 
     if avg_s and not pd.isna(avg_s) and avg_s > 0:
-        ratio = duration_s / avg_s
+        ratio    = duration_s / avg_s
+        avg_lbl  = _fmt_duration(avg_s)
+        n_lbl    = f"{int(n_runs)} runs" if n_runs and not pd.isna(n_runs) else "prev. runs"
+
         if ratio > 1.3:
             color   = "var(--failed)"
             arrow   = "⬆"
-            tooltip = f"title=\"+{int((ratio - 1) * 100)}% vs avg ({int(avg_s)}s)\""
+            pct     = int((ratio - 1) * 100)
+            tooltip = f'title="+{pct}% vs avg {avg_lbl} (last {n_lbl})"'
         elif ratio < 0.7:
             color   = "var(--success)"
             arrow   = "⬇"
-            tooltip = f"title=\"{int((1 - ratio) * 100)}% faster vs avg ({int(avg_s)}s)\""
+            pct     = int((1 - ratio) * 100)
+            tooltip = f'title="-{pct}% vs avg {avg_lbl} (last {n_lbl})"'
         else:
             color   = "var(--text-dim)"
-            arrow   = ""
-            tooltip = f"title=\"avg: {int(avg_s)}s\""
+            arrow   = "≈"
+            pct     = int(abs(ratio - 1) * 100)
+            tooltip = f'title="≈ avg {avg_lbl} (±{pct}%, last {n_lbl})"'
     else:
+        # Pas encore assez de runs précédents pour calculer une moyenne
         color   = "var(--text-dim)"
         arrow   = ""
-        tooltip = ""
+        tooltip = 'title="No previous runs to compare"'
 
     return (
-        f'<span class="duration-badge" style="color:{color};" {tooltip}>'
-        f'⏱ {label}{" " + arrow if arrow else ""}'
+        f'<span class="duration-badge" style="color:{color};cursor:help;" {tooltip}>'
+        f'⏱ {label}'
+        f'{" <small style=\'font-size:.75em;\'>" + arrow + "</small>" if arrow else ""}'
         f'</span>'
     )
 
