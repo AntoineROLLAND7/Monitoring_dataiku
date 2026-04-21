@@ -118,12 +118,12 @@ def build_kpi_cards_html(
             <span style="display:flex;align-items:center;gap:6px;">
                 <span style="width:8px;height:8px;border-radius:50%;
                              background:var(--warning);display:inline-block;flex-shrink:0;"></span>
-                <span style="font-size:0.6rem;font-weight:700;color:var(--warning);">Unstable — isolated failure</span>
+                <span style="font-size:0.6rem;font-weight:700;color:var(--warning);">Unstable — < 80% error </span>
             </span>
             <span style="display:flex;align-items:center;gap:6px;">
                 <span style="width:8px;height:8px;border-radius:50%;
                              background:var(--failed);display:inline-block;flex-shrink:0;"></span>
-                <span style="font-size:0.6rem;font-weight:700;color:var(--failed);">Critical — recurring failures</span>
+                <span style="font-size:0.6rem;font-weight:700;color:var(--failed);">Critical — > 80% error</span>
             </span>
         </div>
     </div>

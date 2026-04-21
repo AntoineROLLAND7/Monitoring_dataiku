@@ -276,6 +276,7 @@ def build_drill_down_html(df: pd.DataFrame) -> str:
     Les filtres disponibles :
       - Recherche texte sur le nom du projet (filtre en temps réel via onkeyup)
       - Filtre statut : All / Success / Failed / critical-trend (échec hier ou aujourd'hui)
+      - Filtre date  : sélecteur de date (filtre sur les lignes L2bis = date du run)
 
     Args:
         df : DataFrame enrichi issu de enrich_steps()
@@ -286,6 +287,12 @@ def build_drill_down_html(df: pd.DataFrame) -> str:
     from config import COL_PROJECT_ID
     n_projects = df[COL_PROJECT_ID].nunique()
     rows_html  = build_table_rows_html(df)
+
+    # Calcul des dates disponibles pour le sélecteur (toutes les dates de run présentes)
+    available_dates = sorted(df["run_exec"].dropna().unique(), reverse=True)
+    date_options    = "\n".join(
+        f'<option value="{d}">{d}</option>' for d in available_dates
+    )
 
     return f"""
     <div class="container">
@@ -306,6 +313,10 @@ def build_drill_down_html(df: pd.DataFrame) -> str:
                     <option value="success">Success</option>
                     <option value="failed">Failed</option>
                     <option value="critical-trend">⚠️ Today's &amp; yesterday's failures</option>
+                </select>
+                <select id="dateFilter" class="status-select" onchange="filterData()" title="Filter by run date">
+                    <option value="all">📅 All Dates</option>
+                    {date_options}
                 </select>
             </div>
         </div>
@@ -344,15 +355,20 @@ JAVASCRIPT = """
 <script>
     /**
      * filterData()
-     * Filtre les lignes L1 (projets) selon la recherche textuelle et le statut sélectionné.
-     * Les lignes L2+ des projets masqués sont également cachées pour éviter les artefacts visuels.
+     * Filtre les lignes L1 (projets) selon :
+     *   - La recherche textuelle (nom du projet)
+     *   - Le statut (all / success / failed / critical-trend)
+     *   - La date sélectionnée (filtre sur les lignes L2bis = date du run)
      *
-     * Filtre "critical-trend" : vérifie les deux derniers carrés de la heatmap du projet
-     * (heatSquares[lastIndex] = aujourd'hui, heatSquares[lastIndex-1] = hier)
+     * Logique date :
+     *   Si une date est sélectionnée, on n'affiche que les projets qui ont au moins
+     *   un run L2bis correspondant à cette date. Les lignes L2bis non correspondantes
+     *   sont masquées, et le projet est auto-déplié pour montrer les résultats.
      */
     function filterData() {
         const searchTerm   = document.getElementById('projSearch').value.toLowerCase();
         const statusFilter = document.getElementById('statusFilter').value;
+        const dateFilter   = document.getElementById('dateFilter').value;
         const rows         = document.querySelectorAll('#masterTable tbody .row-l1');
 
         rows.forEach(row => {
@@ -360,31 +376,108 @@ JAVASCRIPT = """
             const projectStatus = row.getAttribute('data-status');
 
             // Lecture des carrés de heatmap pour le filtre "critical-trend"
-            const heatSquares    = row.querySelectorAll('.heat-square');
-            const lastIndex      = heatSquares.length - 1;
-            const failedToday    = heatSquares[lastIndex]?.classList.contains('heat-failed');
-            const failedYesterday= heatSquares[lastIndex - 1]?.classList.contains('heat-failed');
+            const heatSquares     = row.querySelectorAll('.heat-square');
+            const lastIndex       = heatSquares.length - 1;
+            const failedToday     = heatSquares[lastIndex]?.classList.contains('heat-failed');
+            const failedYesterday = heatSquares[lastIndex - 1]?.classList.contains('heat-failed');
 
+            // ── Filtre statut ─────────────────────────────────────────────────
             const matchesSearch = projectName.includes(searchTerm);
             let   matchesStatus = false;
 
             if (statusFilter === 'all') {
-                matchesStatus = true;                             // Pas de filtre statut
+                matchesStatus = true;
             } else if (statusFilter === 'critical-trend') {
-                matchesStatus = failedToday || failedYesterday;  // Échec récent (hier ou aujourd'hui)
+                matchesStatus = failedToday || failedYesterday;
             } else {
-                matchesStatus = (projectStatus === statusFilter); // Filtre exact success/failed
+                matchesStatus = (projectStatus === statusFilter);
             }
 
-            if (matchesSearch && matchesStatus) {
-                row.style.display = "";  // Affiche la ligne projet
+            // ── Filtre date ───────────────────────────────────────────────────
+            // On collecte toutes les lignes enfants de ce projet (L2, L2bis, L3, L4)
+            const children = getNextRows(row);
+
+            let matchesDate = true;
+            if (dateFilter !== 'all') {
+                // Vérifie si au moins une ligne L2bis de ce projet correspond à la date
+                const l2bisRows = children.filter(r => r.classList.contains('row-l2bis'));
+                matchesDate = l2bisRows.some(r => {
+                    // Le texte de la 1ère cellule contient la date (ex: "2025-04-14")
+                    return r.querySelector('td')?.textContent.trim().includes(dateFilter);
+                });
+            }
+
+            // ── Affichage / masquage du projet ────────────────────────────────
+            if (matchesSearch && matchesStatus && matchesDate) {
+                row.style.display = "";
+
+                if (dateFilter !== 'all') {
+                    // Auto-déplier jusqu'au niveau L2bis pour montrer les dates filtrées
+                    _applyDateFilter(row, children, dateFilter);
+                } else {
+                    // Pas de filtre date : on referme tout (état par défaut)
+                    children.forEach(r => {
+                        if (!r.classList.contains('row-l2')) r.style.display = 'none';
+                    });
+                    // On laisse les L2 visibles si le projet était déjà ouvert
+                }
             } else {
                 row.style.display = "none";
-                // Masque également toutes les lignes enfants (L2, L2bis, L3, L4)
-                getNextRows(row).forEach(r => r.style.display = "none");
+                children.forEach(r => r.style.display = "none");
                 row.classList.remove('expanded');
             }
         });
+    }
+
+    /**
+     * _applyDateFilter(projRow, children, dateFilter)
+     * Quand un filtre date est actif :
+     *   - Déplie les L2 (scénarios) qui ont au moins un L2bis correspondant
+     *   - Affiche uniquement les L2bis dont la date correspond
+     *   - Masque les L2bis qui ne correspondent pas
+     *   - Masque les L3/L4 (on ne les ouvre pas automatiquement)
+     *   - Masque les L2 qui n'ont aucun L2bis correspondant
+     */
+    function _applyDateFilter(projRow, children, dateFilter) {
+        projRow.classList.add('expanded');
+
+        // On parcourt les enfants en gardant une référence au L2 courant
+        let currentL2 = null;
+        let currentL2HasMatch = false;
+
+        children.forEach((r, idx) => {
+            if (r.classList.contains('row-l2')) {
+                // Avant de passer au L2 suivant, on décide si le L2 précédent est visible
+                if (currentL2 !== null) {
+                    currentL2.style.display = currentL2HasMatch ? 'table-row' : 'none';
+                    if (currentL2HasMatch) currentL2.classList.add('expanded');
+                    else currentL2.classList.remove('expanded');
+                }
+                currentL2 = r;
+                currentL2HasMatch = false;
+                r.style.display = 'table-row'; // Provisoire, sera corrigé après
+            } else if (r.classList.contains('row-l2bis')) {
+                const cellText = r.querySelector('td')?.textContent.trim() || '';
+                if (cellText.includes(dateFilter)) {
+                    r.style.display = 'table-row';
+                    currentL2HasMatch = true;
+                } else {
+                    r.style.display = 'none';
+                    r.classList.remove('expanded');
+                }
+            } else {
+                // L3 et L4 : masqués par défaut lors du filtre date
+                r.style.display = 'none';
+                r.classList.remove('expanded');
+            }
+        });
+
+        // Traitement du dernier L2
+        if (currentL2 !== null) {
+            currentL2.style.display = currentL2HasMatch ? 'table-row' : 'none';
+            if (currentL2HasMatch) currentL2.classList.add('expanded');
+            else currentL2.classList.remove('expanded');
+        }
     }
 
     /**
